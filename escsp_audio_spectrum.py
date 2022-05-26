@@ -31,19 +31,19 @@ n_sec=10
 #audio_filename="CONGE03903_TotalEclipse_20170820_171350.wav"
 #audio_filename="HumanCheeringInsects_ScottsBluff.wav"
 #audio_filename="InsectAircraft_ScottsBluff.wav"
-audio_filename="InsectBird_GreatSmokey.wav"
+#audio_filename="InsectBird_GreatSmokey.wav"
 #audio_filename="InsectBirdAircraft_Homestead.wav"
 #audio_filename="Insects_GreatSmokey.wav"
 #audio_filename="Wind_ScottsBluff.wav"
 #audio_filename=".wav"
-audio_filename="nri-BisonYELL.wav"
+audio_filename="nri-GrasshopperYOSE.wav"
 #movie_name="Eclipse test"
 #movie_name="BisonYELL"
 #movie_name="Elk_Test"
 #Number of frames/sec
 frames_per_second=24
 
-audio_file=os.path.join(raw_data_folder,audio_filename)
+audio_files=os.path.join(raw_data_folder,audio_filename)
 base_filename, ext = os.path.splitext(os.path.basename(audio_file))
 
 movie_name1=os.path.join(movie_folder,base_filename+"_spectrogram_silent.mp4")
@@ -81,11 +81,12 @@ wavfile.write(audio_file_out, Fs, first)
 ###########################################################################
 x_temp=np.arange(0,2*np.pi, .1)
 y_temp=np.sin(x_temp)
-left, width = 0.1, 0.65
-bottom, height = 0.1, 0.65
-spacing = 0.005
-
 index=0
+
+# Postion of plot one, the equalizer [left, bottom, width, height]
+ax1_position=[0.15, 0.79, 0.67, 0.16]
+# Postion of plot two, the spectrogram [left, bottom, width, height]
+ax2_position=[0.15, 0.1, 0.85, 0.51]
 for iter_1 in range(n_sec):
     for iter_2 in range(frames_per_second):
         powerSpectrum, frequenciesFound, time, imageAxis = plt.specgram(first, Fs=Fs,
@@ -93,36 +94,43 @@ for iter_1 in range(n_sec):
         line_xs=[iter_1+(iter_2/frames_per_second),iter_1+(iter_2/frames_per_second)]
         line_ys=[min(frequenciesFound),max(frequenciesFound)]
         
-        plt.style.use('dark_background')
-
-        plt.subplot(2, 1, 1)
-        ax = plt.gca()
+        fig1 = plt.figure()
+        ax = fig1.add_axes(ax1_position)
+        
+        #plt.subplot(2, 1, 1)
+        #plt.axes([0., 0.3, 0.3, 0.3])    # [left, bottom, width, height]
+        #ax = plt.gca()
         #ax.axes.xaxis.set_ticklabels([])
         #ax.set_ylim([np.min(powerSpectrum[:,index]), np.max(powerSpectrum[:,index])])
         
         #plt.yscale("log")  
-        ax.axes.xaxis.set_ticklabels([])
-        ax.axes.yaxis.set_ticklabels([])
+        #ax.set_yticklabels([])
+        #ax.set_xticklabels([])
+        
         ax.set_yticks([])
-        plt.xlabel('Frequency')
-        plt.ylabel('Relative Volume')
-        plt.plot(frequenciesFound,powerSpectrum[:,index],color="#ff9300")
-        plt.plot(frequenciesFound,-1.0*powerSpectrum[:,index],color="#ff9300")
-        ax.fill_between(frequenciesFound,powerSpectrum[:,index],-1.0*powerSpectrum[:,index],color="#ff9300")
 
-        plt.subplot(2, 1, 2)
-        powerSpectrum, frequenciesFound, time, imageAxis = plt.specgram(first, Fs=Fs,
-         xextent=[0,n_sec], mode="magnitude", scale="dB", cmap="inferno", scale_by_freq=False) 
+        ax.set_xlabel('Frequency')
+        ax.set_ylabel('Volume')
+        ax.plot(frequenciesFound,powerSpectrum[:,index],color="#ff9300")
+        ax.plot(frequenciesFound,-1.0*powerSpectrum[:,index],color="#ff9300")
+        ax.fill_between(frequenciesFound,powerSpectrum[:,index],-1.0*powerSpectrum[:,index],color="#ff9300")
+        
+        ax2 = fig1.add_axes(ax2_position)# [left, bottom, width, height]
+        powerSpectrum, frequenciesFound, time, imageAxis = ax2.specgram(first, Fs=Fs,
+        xextent=[0,n_sec], mode="magnitude", scale="dB", cmap="inferno", scale_by_freq=False) 
         line_xs=[iter_1+(iter_2/frames_per_second),iter_1+(iter_2/frames_per_second)]
         line_ys=[min(frequenciesFound),max(frequenciesFound)]
-        plt.xlabel('Time (Seconds)')
-        plt.ylabel('Frequency')
+
+       
+        ax2.set_xlabel('Time (Seconds)')
+        ax2.set_ylabel('Frequency')
         #if  max(line_xs) > 0:
         #    plt.plot(line_xs,line_ys,'k')
         #plt.tight_layout()
-        plt.plot(line_xs,line_ys,'k')
+        ax2.plot(line_xs,line_ys,'k')
         #plt.plot([total_eclipse_start_delta, total_eclipse_start_delta], line_ys,'w')
-        plt.colorbar(label="Volume dB")
+        ax2.set_title('Spectrogram')
+        plt.colorbar(imageAxis,label="Volume dB")
         frame_name="image_"+str(index).zfill(5)+".png"
         #plt.suptitle(plot_title+" t="+str(iter_1).zfill(4)+" (s)")
         
