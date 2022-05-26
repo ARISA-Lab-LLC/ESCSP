@@ -63,30 +63,38 @@ for audio_file in audio_files:
     if os.path.isfile(audio_file_out):
 	    os.remove(audio_file_out)
 ###########################################################################
+#Audio Processing
+#Fs=Sampling rate (Frequency, sample)
+#aud = Audio data
+    Fs, audio = wavfile.read(audio_file) 
+
+    n_sec=int(len(audio[:,0])/Fs)
+    print("Original file length: "+str(n_sec)+' seconds')
+#n_sec=int(len(audio[Fs*135:,0])/Fs)
+    audio_left = audio[:,0] # select left channel only
+    #Save some memory space
+    del(audio)
 # datetime(year, month, day, hour, minute, second, microsecond)
     clip_start_time=datetime.datetime(2017, 8,21,16,8,55)
     total_eclipse_start_time=datetime.datetime(2017,8,21, 18,42,33)
     total_eclipse_start_delta=(total_eclipse_start_time-clip_start_time).total_seconds()
 
-    start_seconds=total_eclipse_start_delta-30.0
-    end_seconds=total_eclipse_start_delta
+    start_seconds=total_eclipse_start_delta-15.0
+    end_seconds=total_eclipse_start_delta+15
+    print("New file length: "+str(end_seconds-start_seconds)+' seconds')
+    n_sec=int(end_seconds-start_seconds)
 
 
+    
 
 #print(total_eclipse_start_delta)
-#Audio Processing
-#Fs=Sampling rate (Frequency, sample)
-#aud = Audio data
-    Fs, aud = wavfile.read(audio_file) 
+#trimmed_audio = audio_left[:int(Fs*n_sec)] # trim 
+#trimmed_audio= audio_left[Fs*135:] # trim 
+    trimmed_audio = audio_left[int(start_seconds*Fs):int(end_seconds*Fs)]
+    wavfile.write(audio_file_out, Fs, trimmed_audio)
 
-    n_sec=int(len(aud[:,0])/Fs)
-#n_sec=int(len(aud[Fs*135:,0])/Fs)
-    aud_left = aud[:,0] # select left channel only
-
-#first = aud_left[:int(Fs*n_sec)] # trim 
-#first= aud_left[Fs*135:] # trim 
-    first = aud_left
-    wavfile.write(audio_file_out, Fs, first)
+    #Save some memory space
+    del(audio_left)
 ###########################################################################
 
     index=0
@@ -97,13 +105,15 @@ for audio_file in audio_files:
     ax2_position=[0.15, 0.1, 0.85, 0.51]
     for iter_1 in range(n_sec):
         for iter_2 in range(frames_per_second):
-            powerSpectrum, frequenciesFound, time, imageAxis = plt.specgram(first, Fs=Fs,
+            powerSpectrum, frequenciesFound, time, imageAxis = plt.specgram(trimmed_audio, Fs=Fs,
                 xextent=[0,n_sec], mode="magnitude", scale="dB", cmap="inferno", scale_by_freq=False) 
             
             line_xs=[iter_1+(iter_2/frames_per_second),iter_1+(iter_2/frames_per_second)]
             line_ys=[min(frequenciesFound),max(frequenciesFound)]
         
             fig1 = plt.figure()
+            #plt.style.use('Solarize_Light2')
+            plt.style.use('dark_background')
             ax = fig1.add_axes(ax1_position)
         
             #plt.subplot(2, 1, 1)
@@ -125,7 +135,7 @@ for audio_file in audio_files:
             ax.fill_between(frequenciesFound,powerSpectrum[:,index],-1.0*powerSpectrum[:,index],color="#ff9300")
         
             ax2 = fig1.add_axes(ax2_position)# [left, bottom, width, height]
-            powerSpectrum, frequenciesFound, time, imageAxis = ax2.specgram(first, Fs=Fs,
+            powerSpectrum, frequenciesFound, time, imageAxis = ax2.specgram(trimmed_audio, Fs=Fs,
             xextent=[0,n_sec], mode="magnitude", scale="dB", cmap="inferno", scale_by_freq=False) 
         
             line_xs=[iter_1+(iter_2/frames_per_second),iter_1+(iter_2/frames_per_second)]
@@ -149,7 +159,7 @@ for audio_file in audio_files:
             #Clear the plot's state
             plt.cla()
             plt.clf()
-
+            plt.close()
 #
     print("Calling ffmpeg")
     print(movie_name1)
