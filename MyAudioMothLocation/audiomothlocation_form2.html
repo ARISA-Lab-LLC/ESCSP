@@ -1,0 +1,38 @@
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+$('#form').on('submit', function(e){
+    e.preventDefault(); // Prevent the form to send
+    $('#feedback')
+      .append('<div>'+$('#name').val()+'</div>')
+      .append('<div>'+$('#email').val()+'</div>')
+      .append('<div>'+$('#comment').val()+'</div>');
+  });
+</script>
+
+
+<h1 style="border: 2px solid black; background-color: white;"></h1>
+
+<div style="border: 2px solid black; background-color: white; padding: 25px 50px;">
+  <h2>Biography</h2>
+  <p></p>
+  <h2>Education</h2>
+  <p></p>
+  <h2>Research Interests</h2>
+  <p></p>
+  <h2>Contact Information</h2>
+  <p></p>
+</div>
+
+<form id="form">
+  <label for="name">Name:</label><br>
+  <input type="text" id="name"><br>
+  <label for="email">Email:</label><br>
+  <input type="text" id="email"><br>
+  <label for="comment">Comment:</label><br>
+  <input type="text" id="comment"><br>
+  <input type="submit" value="Submit">
+</form>
+
+<div id="feedback"></div>

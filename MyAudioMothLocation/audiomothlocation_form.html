@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>My test page</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        $(document).ready(function(){
+        $("form").submit(function(){
+            alert("Submitted");
+            });
+        });
+    </script>
+  </head>
+  <body>
+    <p>This is my page</p>
+    <form action="/my-handling-form-page" method="post">
+        <ul>
+         <li>
+           <label for="audiomoth_no">Audio Moth Number:</label>
+           <input type="text" id="audiomoth_no" name="number" value="#">
+         </li>
+         <li>
+           <label for="type">Set Up Type:</label>
+           <br>
+           <input type="radio" id="test" name="type" value="test">
+                <label for="test">Test</label><br>
+           <input type="radio" id="recording_location" name="type" value="recording_location">
+                <label for="recording_location">Recording Location</label>
+         </li>
+         <li>
+           <label for="msg">Message:</label><br>
+           <textarea id="msg" name="user_message"></textarea>
+         </li>
+         <li class="button">
+            <button type="submit">Send your message</button>
+          </li>
+        </ul>
+       </form>
+
+       
+    <form id="form" action="#" method="POST" onsubmit="return false;">
+        <input type="text" id="firstName" name="user_firstName" required>
+        <button type="button" id="submit">Submit</button>
+    </form>
+    
+  </body>
+</html>

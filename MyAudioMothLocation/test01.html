@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+  <head lang="en">
+  <meta charset="UTF-8">
+  <script language="JavaScript">
+    function validate() {
+        // Get the value of the input field with id="numb"
+        let x = document.getElementById("numb").value;
+        // If x is Not a Number or less than one or greater than 10
+        let text;
+        if (isNaN(x) || x < 1 || x > 10000) {
+            document.getElementById("demo").innerHTML = "Input not valid.  Please enter a number";
+
+        } else {
+            document.getElementById("warning").innerHTML  = "Input OK";
+            showInput();
+            }  
+        
+        }
+  
+
+    function showInput() {
+        document.getElementById("submit_button").disabled = true;
+        document.getElementById("submit_button").classList.toggle('disabled');
+        var audiomoth_number = document.getElementById("audiomoth_no").value;
+        var date_and_time = getDate();
+    //    document.getElementById('display').innerHTML = 
+    //                document.getElementById("user_input").value;
+
+        
+    //    document.write( 
+    //        "Your AudioMoth Location has been entered as: <br>"+
+    //        "AudioMoth Number: "+ audiomoth_number + "<br>"+
+    //        "Date and Time: "+date_and_time + "<br>"+
+    //        "<p id='demo'> Calculating Latitude and Longitude </p>");
+
+        document.getElementById("AudioMoth_no_out").innerHTML =  "AudioMoth Number: "+ audiomoth_number ;
+        document.getElementById("Time_out").innerHTML =  "Time of Report: "+ date_and_time ;
+        document.getElementById("Latitude_out").innerHTML =  "Latitude: "+ "<i>Calculating Latitude</i>" ;
+        document.getElementById("Longitude_out").innerHTML =  "Longitude: "+ "<i>Calculating Longitude</i>";
+
+    
+        navigator.geolocation.getCurrentPosition(showPosition);
+    }
+    function getDate() {
+        var today = new Date();
+        var dd = today.getUTCDate();
+        var mm = today.getUTCMonth() + 1; //January is 0!
+        var yyyy = today.getUTCFullYear();
+        var hr = today.getUTCHours();
+        var mi = today.getUTCMinutes();
+        var ss = today.getUTCSeconds();
+    
+
+        if (dd < 10) {
+            dd = '0' + dd;
+        }
+        if (mm < 10) {
+            mm = '0' + mm;
+        }
+        var today = mm + '-' + dd + '-' + yyyy+ ' ' + hr + ':' + mi + ':' + ss ;
+        return today;
+    }
+    function showPosition(position) {
+        document.getElementById("Latitude_out").innerHTML =
+            "Latitude: " + position.coords.latitude;
+        document.getElementById("Longitude_out").innerHTML =  
+            "Longitude: "+ position.coords.longitude;
+        document.getElementById("Status_out").innerHTML =  
+            "<font size='+2'><strong><i>Success!</i></strong></font>";
+
+        document.getElementById("submit_button").style.display='none';
+        document.getElementById("submit_button").classList.toggle('button_amloc');
+        document.getElementById("submit_button").disabled = false;
+
+    }
+  </script>
+
+
+  </head>
+<body>
+   <style> 
+    .button_amloc {
+        border: 2px solid lightgray;
+        text-align: center;
+        text-decoration: none;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+    .button_amloc:hover {
+        background-color: black;
+        border: 4px solid orange;
+        color: white;
+        }   
+    
+    input[type="submit"]:disabled {
+        cursor: not-allowed;
+        pointer-events: none;
+        opacity: 0.5;
+        }
+    .disabled {
+        pointer-events: none;
+        opacity: .65;
+        }
+
+    </style> 
+    
+
+  <form>
+    <ul>
+        <li>
+          <label for="audiomoth_no">AudioMoth Number:</label>
+          <input type="text" id="audiomoth_no" name="number" required> <div id="warning"></div>
+        </li>
+        <li>
+          <label for="type">Set Up Type:</label>
+          <br>
+           <input type="radio" id="test" name="type" value="test">
+                <label for="test">Test</label><br>
+           <input type="radio" id="recording_location" name="type" value="recording_location">
+                <label for="recording_location">Recording Location</label>
+        </li>
+    </ul>
+     
+    
+         
+      </form>
+    <br>
+    <button class="button_amloc" id="submit_button" type="submit" onclick="showInput();">Submit</button>
+    <br>
+    <p id="AudioMoth_no_out"></u></p>
+    <p id="Time_out"></u></p>
+    <p id="Latitude_out"></u></p>
+    <p id="Longitude_out"></u></p> 
+    <p id="Status_out"></u></p> 
+</body>
+</html>

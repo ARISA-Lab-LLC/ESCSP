@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+  <head lang="en">
+  <meta charset="UTF-8">
+  <script language="JavaScript">
+    //JavaScript to read the form and process the data. 
+    function validate_fr_form() {
+        // Get the value of the input field with id="numb"
+        //let x = document.getElementById("numb").value;
+        // If x is Not a Number or less than one or greater than 10
+        //let text;
+        //if (isNaN(x) || x < 1 || x > 10000) {
+        //    document.getElementById("demo").innerHTML = "Input not valid.  Please enter a number";
+
+        //} else {
+        //     document.getElementById("warning").innerHTML  = "Input OK";
+        //    showInput();
+        //    }  
+
+        //On success submitt the form
+        submit_fr_form();
+        }
+  
+
+    function submit_fr_form() {
+        document.getElementById("audiomoth_number").disabled = true;
+        document.getElementById("Date").disabled = true;
+        document.getElementById("Time").disabled = true;
+        document.getElementById("Yard").disabled = true;
+        document.getElementById("Forest").disabled = true;
+        document.getElementById("Field").disabled = true;
+        document.getElementById("National_Park").disabled = true;
+        document.getElementById("Farm").disabled = true;
+        document.getElementById("Near_a_Lake").disabled = true;
+        document.getElementById("Near_an_Ocean").disabled = true;
+        document.getElementById("Other").disabled = true;
+        document.getElementById("Yes").disabled = true;
+        document.getElementById("No").disabled = true;
+        document.getElementById("do_not_know").disabled = true;
+        document.getElementById("Human_voices").disabled = true;
+        document.getElementById("Machinery").disabled = true;
+        document.getElementById("Animals").disabled = true;
+        document.getElementById("Birds").disabled = true;
+        document.getElementById("Insects").disabled = true;
+        document.getElementById("Weather").disabled = true;
+        document.getElementById("Yard").disabled = true;
+        document.getElementById("Yard").disabled = true;
+        document.getElementById("Louder_or_Quieter").disabled = true;
+        document.getElementById("Other_Observations").disabled = true;
+        document.getElementById("Other_Observations").disabled = true;
+        document.getElementById("submit_button").classList.toggle('disabled');
+        document.getElementById("submit_button").disabled = true;
+
+        var submit_time = getDate();
+
+        document.getElementById("Status_out").innerHTML =  
+            "<font size='+2'><strong><i>Success! Field Researcher Report Form Submitted on "+submit_time+" UTC</i></strong></font>";
+    
+
+    }
+    function getDate() {
+        var today = new Date();
+        var dd = today.getUTCDate();
+        var mm = today.getUTCMonth() + 1; //January is 0!
+        var yyyy = today.getUTCFullYear();
+        var hr = today.getUTCHours();
+        var mi = today.getUTCMinutes();
+        var ss = today.getUTCSeconds();
+    
+
+        if (dd < 10) {
+            dd = '0' + dd;
+        }
+        if (mm < 10) {
+            mm = '0' + mm;
+        }
+        var today = mm + '-' + dd + '-' + yyyy+ ' ' + hr + ':' + mi + ':' + ss ;
+        return today;
+    }
+    
+  </script>
+
+
+  </head>
+<body>
+   <!--Custom style CSS (Must be first raw html before the form)-->  
+   <style> 
+    .submit_button {
+        border: 2px solid lightgray;
+        text-align: center;
+        text-decoration: none;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+    .submit_button:hover {
+        background-color: black;
+        border: 4px solid orange;
+        color: white;
+        }   
+    
+    input[type="submit"]:disabled {
+        cursor: not-allowed;
+        pointer-events: none;
+        opacity: 0.5;
+        }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        border-radius: 4px;
+        margin-right: 2px;
+        filter: invert(0.9);
+        }
+
+    input[type="time"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        border-radius: 4px;
+        margin-right: 2px;
+        filter: invert(0.9);
+        }
+
+    .disabled {
+        pointer-events: none;
+        opacity: .65;
+        }
+
+    </style> 
+    
+<!--Start the form (Must be after style but before other form elements)-->     
+  <form>
+<!---->
+        <!--AudioMoth Number-->  
+        <label for="audiomoth_number">AudioMoth Number:</label><br>
+            <input type="text" id="audiomoth_number" name="number" required size="4" style="border: 2px solid lightgray;" onmouseover="text_focus_on(this)" onmouseout="text_focus_off(this)" > <div id="warning_audiomoth_number"></div><br>
+        <!---->
+
+        <!--Date--> 
+        <label for="Date">Date:</label><br>    
+            <input type="date" id="Date" name="Date" onmouseover="text_focus_on(this)" 
+            onmouseout="text_focus_off(this)"> <div id="warning_Date"></div><br>
+        <!---->
+
+        <!--Time--> 
+            <label for="Time">Local Time of observation:</label><br>    
+                <input type="time" id="Time" name="Time" onmouseover="text_focus_on(this)" 
+                onmouseout="text_focus_off(this)"> <div id="warning_Time"></div><br>
+        <!---->
+
+        <!--Location--> 
+        <label for="Location_type">Location: Choose the landscape type that best matches your AudioMoth location. </label><div id="warning_Location"></div>
+        <input type="radio" id="Yard" name="Location_type" value="Yard">
+            <label for="Yard"> Yard</label><br>
+        <input type="radio" id="Forest" name="Location_type" value="Forest">
+             <label for="Forest"> Forest</label><br>
+        <input type="radio" id="Field" name="Location_type" value="Field">
+            <label for="Field"> Field</label><br>
+        <input type="radio" id="National_Park" name="Location_type" value="National Park">
+             <label for="National_Park"> National Park</label><br>
+        <input type="radio" id="Farm" name="Location_type" value="Farm">
+            <label for="Farm"> Farm</label><br>
+        <input type="radio" id="Near_a_Lake" name="Location_type" value="Near a Lake">
+             <label for="Near_a_Lake"> Near a Lake</label><br>
+        <input type="radio" id="Near_an_Ocean" name="Location_type" value="Near an Ocean">
+            <label for="Near_an_Ocean"> Near an Ocean</label><br>
+        <input type="radio" id="Other" name="Location_type" value="Other">
+             <label for="Other"> Other</label><br><br>
+        <label for="Location_other">If other, please briefly describe the AudioMoth location? (short answer)</label><br>
+             <textarea id="Location_other" name="Location_other"cols="40" rows="5" style="border: 2px solid lightgray;" 
+             onmouseover="text_focus_on(this)" onmouseout="text_focus_off(this)"> </textarea><br><br>
+        <!---->
+
+        <!--Hear a Change--> 
+       Did you hear a change in the soundscape recording?<br>
+        <input type="radio" id="Yes" name="Sound_Change" value="Yes">
+            <label for="Yes"> Yes</label><br>
+        <input type="radio" id="No" name="Sound_Change" value="No">
+            <label for="No"> No</label><br>
+        <input type="radio" id="do_not_know" name="Sound_Change" value="I don't know">
+            <label for="do_not_know"> I don't know</label><br>
+            <br>
+        <!---->
+        <!--What did you hear?--> 
+        What did you hear in the soundscape recording?<br>
+        <input type="checkbox" id="Human_voices" name="Human_voices" value="Human voices">
+            <label for="Human_voices"> Human voices</label><br>
+        <input type="checkbox" id="Machinery" name="Machinery" value="Machinery">
+            <label for="Machinery"> Vehicles, Planes, or Machinery</label><br>
+        <input type="checkbox" id="Animals" name="Animals" value="Animals">
+            <label for="vehicle3"> Animals</label><br>
+        <input type="checkbox" id="Birds" name="Birds" value="Birds">
+            <label for="vehicle3"> Birds</label><br>
+        <input type="checkbox" id="Insects" name="Insects" value="Insects">
+            <label for="vehicle3"> Insects</label><br>
+        <input type="checkbox" id="Weather" name="Weather" value="Weather">
+            <label for="vehicle3"> Weather</label><br>
+            <br>
+        <!---->
+
+        <!--Quieter or Louder--> 
+        <label for="Louder_or_Quieter">Did any sounds get louder or quieter? (short answer)</label><br>
+            <textarea id="Louder_or_Quieter" name="Louder_or_Quieter"cols="40" rows="5" 
+            style="border: 2px solid lightgray;" onmouseover="text_focus_on(this)" onmouseout="text_focus_off(this)" > </textarea><div id="warning_Louder_or_Quieter"></div><br>
+        <!---->
+        <!--Other Location Observations--> 
+        <label for="Other_Observations"> Other Location Observations (What do you hear, smell, see, around you? What is the weather? What time of day is it? etc)(short answer)</label><br>
+            <textarea  id="Other_Observations" name="Other_Observations" required cols="40" rows="5" style="border: 2px solid lightgray;" onmouseover="text_focus_on(this)" onmouseout="text_focus_off(this)" > </textarea> <div id="warning_Other_Observations"></div><br>
+         <!---->
+    
+    <!--End of the form (Must come after all form elements, but before the Submit button, Success Message, and JavaScript)-->     
+      </form>
+    <!---->
+    <!--Submit button (Must be after the end of the form)--> 
+    <button class="submit_button" id="submit_button" type="submit" onclick="validate_fr_form();">Submit</button>
+    <br>
+    <!---->
+    <!--Success Message (After Submit button)--> 
+    <p id="Status_out"></u></p> 
+    <!---->
+</body>
+
+
+<script>
+    //Set the date in the Date field. JS needs to be at the end of the page.
+
+    var date_on_load = new Date();
+    var currentDate = date_on_load.toISOString().slice(0,10);
+    var currentTime = date_on_load.getHours() + ':' + date_on_load.getMinutes();
+
+    document.getElementById('Date').value = currentDate;
+    document.getElementById('Time').value = currentTime; 
+
+</script> 
+
+<script language="JavaScript">
+    //JavaScript to highlight text boxes. 
+    function text_focus_on(id_pass) {
+        id_pass.style.borderColor = "orange";
+    }
+    function text_focus_off(id_pass) {
+        id_pass.style.borderColor = "lightgray";
+    }
+
+</script> 
+
+<script language="JavaScript">
+    //JavaScript to read the form and process the data. 
+    function validate_fr_form() {
+        // Get the value of the input field with id="numb"
+        //let x = document.getElementById("numb").value;
+        // If x is Not a Number or less than one or greater than 10
+        //let text;
+        //if (isNaN(x) || x < 1 || x > 10000) {
+        //    document.getElementById("demo").innerHTML = "Input not valid.  Please enter a number";
+
+        //} else {
+        //     document.getElementById("warning").innerHTML  = "Input OK";
+        //    showInput();
+        //    }  
+        
+        document.getElementById("audiomoth_number").disabled = true;
+        document.getElementById("Date").disabled = true;
+        document.getElementById("Time").disabled = true;
+        document.getElementById("Yard").disabled = true;
+        document.getElementById("Forest").disabled = true;
+        document.getElementById("Field").disabled = true;
+        document.getElementById("National_Park").disabled = true;
+        document.getElementById("Farm").disabled = true;
+        document.getElementById("Near_a_Lake").disabled = true;
+        document.getElementById("Near_an_Ocean").disabled = true;
+        document.getElementById("Other").disabled = true;
+        document.getElementById("Yes").disabled = true;
+        document.getElementById("No").disabled = true;
+        document.getElementById("do_not_know").disabled = true;
+        document.getElementById("Human_voices").disabled = true;
+        document.getElementById("Machinery").disabled = true;
+        document.getElementById("Animals").disabled = true;
+        document.getElementById("Birds").disabled = true;
+        document.getElementById("Insects").disabled = true;
+        document.getElementById("Weather").disabled = true;
+        document.getElementById("Yard").disabled = true;
+        document.getElementById("Yard").disabled = true;
+        document.getElementById("Louder_or_Quieter").disabled = true;
+        document.getElementById("Other_Observations").disabled = true;
+        document.getElementById("Other_Observations").disabled = true;
+        document.getElementById("submit_button").classList.toggle('disabled');
+        document.getElementById("submit_button").disabled = true;
+        document.getElementById("Status_out").innerHTML =  
+            "<font size='+2'><strong><i>Processing Field Researcher Report Form</i></strong></font>";
+
+        //On success submit the form
+            setTimeout(function () {
+                // ...
+                submit_fr_form();
+                
+            }, 3000);
+        //submit_fr_form();
+        }
+  
+
+    function submit_fr_form() {
+
+        var submit_time = getDate();
+
+        document.getElementById("Status_out").innerHTML =  
+            "<font size='+2'><strong><i>Success! Field Researcher Report Form Submitted on "+submit_time+" UTC</i></strong></font>";
+    
+
+    }
+    function getDate() {
+        var today = new Date();
+        var dd = today.getUTCDate();
+        var mm = today.getUTCMonth() + 1; //January is 0!
+        var yyyy = today.getUTCFullYear();
+        var hr = today.getUTCHours();
+        var mi = today.getUTCMinutes();
+        var ss = today.getUTCSeconds();
+    
+
+        if (dd < 10) {
+            dd = '0' + dd;
+        }
+        if (mm < 10) {
+            mm = '0' + mm;
+        }
+        var today = mm + '-' + dd + '-' + yyyy+ ' ' + hr + ':' + mi + ':' + ss ;
+        return today;
+    }
+    
+  </script>
+</html>

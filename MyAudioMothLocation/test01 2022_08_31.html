@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head lang="en">
+  <meta charset="UTF-8">
+  <script language="JavaScript">
+    function showInput() {
+        var audiomoth_number = document.getElementById("user_input").value;
+        var date_and_time = getDate();
+    //    document.getElementById('display').innerHTML = 
+    //                document.getElementById("user_input").value;
+
+        
+        document.write( 
+            "Your AudioMoth Location has been entered as: <br>"+
+            "AudioMoth Number: "+ audiomoth_number + "<br>"+
+            "Date and Time: "+date_and_time + "<br>"+
+            "<p id='demo'> Calculating Latitude and Longitude </p>");
+
+        navigator.geolocation.getCurrentPosition(showPosition);
+    }
+    function getDate() {
+        var today = new Date();
+        var dd = today.getUTCDate();
+        var mm = today.getUTCMonth() + 1; //January is 0!
+        var yyyy = today.getUTCFullYear();
+        var hr = today.getUTCHours();
+        var mi = today.getUTCMinutes();
+        var ss = today.getUTCSeconds();
+    
+
+        if (dd < 10) {
+            dd = '0' + dd;
+        }
+        if (mm < 10) {
+            mm = '0' + mm;
+        }
+        var today = mm + '-' + dd + '-' + yyyy+ ' ' + hr + ':' + mi + ':' + ss ;
+        return today;
+    }
+    function showPosition(position) {
+        document.getElementById("demo").innerHTML =
+        "<div style='border:solid 4px green;'>"+
+        "Latitude: " + position.coords.latitude + "<br>" +
+        "Longitude: " + position.coords.longitude+
+        "</div>";
+    }
+  </script>
+
+
+  </head>
+<body>
+
+  <form>
+    <label><b>Enter a Message</b></label>
+    <input type="text" name="message" id="user_input">
+    
+  </form>
+''
+  <input type="submit" onclick="showInput();"><br/>
+  <label>Your input: </label>
+  <p><span id='display'></span></p>
+  <p><span id='display'></span></p>
+</body>
+</html>
