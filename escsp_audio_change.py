@@ -74,8 +74,7 @@ start_seconds=24.5*60.0
 end_seconds=30.5*60.0
 n_sec=end_seconds-start_seconds
 audio_files=[os.path.join(raw_data_folder,audio_filename)]
-def escsp_get_soundfile_start_time(fname):
-    #Input fname is the 
+
 
 for audio_file in audio_files:
     if verbose: print(audio_file)
