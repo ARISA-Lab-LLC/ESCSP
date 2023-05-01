@@ -1,3 +1,4 @@
+#escsp_audio_spectrum.py
 ###########################################################################
 #Import Libraries section
 import numpy as np 
@@ -20,10 +21,16 @@ data_folder="/Users/trae/Dropbox/programs/ESCSP_Data/"
 frames_folder=os.path.join(data_folder,"frames/")
 movie_folder=os.path.join(data_folder,"movies/")
 raw_data_folder=os.path.join(data_folder,"raw_data/")
-raw_data_folder='/Volumes/NPS_EclipseSoundScape_2017/AUDIO/CONG/'
+#raw_data_folder='/Volumes/NPS_EclipseSoundScape_2017/AUDIO/FODO/'
+#raw_data_folder='/Volumes/NPS_EclipseSoundScape_2017/AUDIO/HOME/'
+#Start time in seconds
+#start_seconds=int(8133)+45
 #Number of seconds to trim data to
-n_sec=10
-
+n_sec=45
+speed_factor=int(1)
+volume_factor=35
+verbose=True
+frames_per_second=12
 #plot_title="Eclipse Data"
 #plot_title="Elk Test"
 #plot_title="Bison Test"
@@ -37,20 +44,40 @@ n_sec=10
 #audio_filename="Insects_GreatSmokey.wav"
 #audio_filename="Wind_ScottsBluff.wav"
 #audio_filename=".wav"
-audio_filename="CONGE03903_20170821_160855.wav"
+#audio_filename="People_and_Cars_Example_trimmed2.wav"
+#audio_filename="Crickets-cicadas-and-grasshoppers.wav"
+#audio_filename="People_and_Cars_Example_first_45.wav"
+#audio_filename="Crickets-cicadas-and-grasshoppers_first_30.wav"
+#audio_filename="CONGE03903_20170820_160856.wav"
+#audio_filename="FODO_eclipse.wav"
+audio_filename="FODOE10882_20170821_160857.wav"
 #movie_name="Eclipse test"
 #movie_name="BisonYELL"
 #movie_name="Elk_Test"
 #Number of frames/sec
-frames_per_second=24
+frames_per_second=3
+if verbose:
+    print(audio_filename)
+    print(frames_per_second)
 
+
+#    start_seconds=total_eclipse_start_delta-30.
+#    end_seconds=total_eclipse_start_delta+0.
+#    n_sec=int(end_seconds-start_seconds)
+#    print("New file length: "+str(n_sec)+' seconds')
+start_seconds=8225
+#end_seconds=start_seconds+n_sec
+end_seconds=8509
+n_sec=end_seconds-start_seconds
 audio_files=[os.path.join(raw_data_folder,audio_filename)]
-for audio_file in audio_files:
-    print(audio_file)
-    base_filename, ext = os.path.splitext(os.path.basename(audio_file))
 
-    movie_name1=os.path.join(movie_folder,base_filename+"_spectrogram_silent.mp4")
-    movie_name2=os.path.join(movie_folder,base_filename+"_spectrogram.mp4")
+for audio_file in audio_files:
+    if verbose: print(audio_file)
+    base_filename, ext = os.path.splitext(os.path.basename(audio_file))
+    movie_base_name=base_filename+"_from_"+str(start_seconds).zfill(6)+"_to_"+str(end_seconds).zfill(6)
+    movie_name1=os.path.join(movie_folder,movie_base_name+"_spectrogram_silent.mp4")
+    movie_name2=os.path.join(movie_folder,movie_base_name+"_spectrogram.mp4")
+    if verbose: print("Movie Name: "+movie_name2)
     plot_title=base_filename
     audio_file_out=os.path.join(data_folder,"audi0_clip.wav")
 #print(audio_file)
@@ -66,35 +93,45 @@ for audio_file in audio_files:
 #Audio Processing
 #Fs=Sampling rate (Frequency, sample)
 #aud = Audio data
-    Fs, audio = wavfile.read(audio_file) 
+    if verbose: print("Opening wav file: ",audio_file)
+    Fs_original, audio = wavfile.read(audio_file) 
 
-    n_sec=int(len(audio[:,0])/Fs)
-    print("Original file length: "+str(n_sec)+' seconds')
+    n_sec_recording=int(len(audio[:,0])/Fs_original)
+    if verbose: print("Original file length: "+str(n_sec_recording)+' seconds')
 #n_sec=int(len(audio[Fs*135:,0])/Fs)
-    audio_left = audio[:,0] # select left channel only
-    #Save some memory space
-    del(audio)
+    #audio_left = audio[:,0] # select left channel only
+    #Combine left and right channels
+    audio_mono=audio[:,0]+audio[:,1]
+
 # datetime(year, month, day, hour, minute, second, microsecond)
-    clip_start_time=datetime.datetime(2017, 8,21,16,8,55)
-    total_eclipse_start_time=datetime.datetime(2017,8,21, 18,42,33)
-    total_eclipse_start_delta=(total_eclipse_start_time-clip_start_time).total_seconds()
+    #CONGE03903_20170821_193153.wav
+#    clip_start_time=datetime.datetime(2017, 8,21,16,8,57)
+#    total_eclipse_start_time=datetime.datetime(2017, 8,21,18,42,38)
+#    total_eclipse_start_delta=(total_eclipse_start_time-clip_start_time).total_seconds()
 
-    start_seconds=total_eclipse_start_delta-15.0
-    end_seconds=total_eclipse_start_delta+15
-    print("New file length: "+str(end_seconds-start_seconds)+' seconds')
-    n_sec=int(end_seconds-start_seconds)
-
-
+    recording_time=int((n_sec)/speed_factor)
     
-
+    Fs=int(Fs_original*speed_factor)   
+    if verbose:
+        print("Recording time: ",recording_time ) 
+        print("Fs_original: ",Fs_original )
+        print("Fs: ",Fs)
 #print(total_eclipse_start_delta)
-#trimmed_audio = audio_left[:int(Fs*n_sec)] # trim 
-#trimmed_audio= audio_left[Fs*135:] # trim 
-    trimmed_audio = audio_left[int(start_seconds*Fs):int(end_seconds*Fs)]
-    wavfile.write(audio_file_out, Fs, trimmed_audio)
+#trimmed_audio = audio_out[:int(Fs*n_sec)] # trim 
+#trimmed_audio= audio_out[Fs*135:] # trim 
+    audio_start_index=int(start_seconds*Fs_original)
+    audio_end_index=int(end_seconds*Fs_original)
+    trimmed_audio = audio_mono[audio_start_index:audio_end_index]
+#Save some memory space
+    del(audio_mono)
 
-    #Save some memory space
-    del(audio_left)
+    trimmed_stereo=audio[audio_start_index:audio_end_index,:]*volume_factor
+#Save some memory space
+    del(audio)
+    wavfile.write(audio_file_out, Fs, trimmed_stereo)
+#Save some memory space
+    del(trimmed_stereo)
+    
 ###########################################################################
 
     index=0
@@ -103,9 +140,16 @@ for audio_file in audio_files:
     ax1_position=[0.15, 0.79, 0.67, 0.16]
 # Postion of plot two, the spectrogram [left, bottom, width, height]
     ax2_position=[0.15, 0.1, 0.85, 0.51]
-    for iter_1 in range(n_sec):
+    
+    if verbose: 
+        print("Recording time: ",str(recording_time))
+        print("Frames per second: ",str(frames_per_second))
+        total_iterations=frames_per_second*recording_time
+        print("Total number of frames:", str(total_iterations))
+    for iter_1 in range(recording_time):
         for iter_2 in range(frames_per_second):
-            powerSpectrum, frequenciesFound, time, imageAxis = plt.specgram(trimmed_audio, Fs=Fs,
+            if verbose: print("iter_1: ",str(iter_1),", iter_2: ",str(iter_2))
+            powerSpectrum, frequenciesFound, time, imageAxis = plt.specgram(trimmed_audio, Fs=Fs_original,
                 xextent=[0,n_sec], mode="magnitude", scale="dB", cmap="inferno", scale_by_freq=False) 
             
             line_xs=[iter_1+(iter_2/frames_per_second),iter_1+(iter_2/frames_per_second)]
@@ -135,10 +179,12 @@ for audio_file in audio_files:
             ax.fill_between(frequenciesFound,powerSpectrum[:,index],-1.0*powerSpectrum[:,index],color="#ff9300")
         
             ax2 = fig1.add_axes(ax2_position)# [left, bottom, width, height]
-            powerSpectrum, frequenciesFound, time, imageAxis = ax2.specgram(trimmed_audio, Fs=Fs,
+            powerSpectrum, frequenciesFound, time, imageAxis = ax2.specgram(trimmed_audio, Fs=Fs_original,
             xextent=[0,n_sec], mode="magnitude", scale="dB", cmap="inferno", scale_by_freq=False) 
-        
-            line_xs=[iter_1+(iter_2/frames_per_second),iter_1+(iter_2/frames_per_second)]
+
+#Plot time bar overlay        
+            line_x_position=iter_1+(iter_2/frames_per_second)
+            line_xs=[line_x_position,line_x_position]
             line_ys=[min(frequenciesFound),max(frequenciesFound)]
 
        
@@ -152,23 +198,28 @@ for audio_file in audio_files:
             frame_name="image_"+str(index).zfill(5)+".png"
                 
             plt.savefig(os.path.join(frames_folder,frame_name))
-            
+            if verbose: print("Saving file: ",os.path.join(frames_folder,frame_name))
             #Advance internal counter 1-step
             index+=1
-        
+            if verbose: print("{:.2f}".format((float(index)/total_iterations)*100),"% Done")
             #Clear the plot's state
             plt.cla()
             plt.clf()
-            plt.close()
+            plt.close("all")
+            #Save some memory space
+            del(powerSpectrum)
+            del(frequenciesFound)
+            del(imageAxis)
 #
-    print("Calling ffmpeg")
-    print(movie_name1)
+    del(trimmed_audio)
+    if verbose: print("Calling ffmpeg")
+    if verbose: print(movie_name1)
     frame="image_%5d.png"
 
     ffmpeg_call="/usr/local/bin/./ffmpeg -framerate "+str(frames_per_second)+" -i "+os.path.join(frames_folder, 
 	    frame)+" "+movie_name1
 
-    print(ffmpeg_call)
+    if verbose: print(ffmpeg_call)
     process=subprocess.run(ffmpeg_call,shell=True)   
 
     #Add the clipped audio file to the movie file
@@ -179,8 +230,9 @@ for audio_file in audio_files:
     if os.path.isfile(movie_name2):
 	    print(movie_name2 + " has been created.") 
 
-#final.write_videofile(movie_name)
-    frames_list=glob.glob(os.path.join(frames_folder,"image_*.png"))
+
+#Remove frame files 
+    frames_list=glob.glob(os.path.join(frames_folder,base_filename+"_image_*.png"))
     for frame in frames_list:
         try:
             os.remove(frame)

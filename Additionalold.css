@@ -1,0 +1,241 @@
+
+.grad1 {
+    background-color: #ffd54e; /* For browsers that do not support gradients */
+    background-image: linear-gradient(to left, #ffa627 0%,#ffd54e 50%,#ffd54e 51%,#ffa627 100%);
+    color:black;
+  }
+hr{
+    background-color: #ffd54e; /* For browsers that do not support gradients */
+    background-image: linear-gradient(to left, #ffa627 0%,#ffd54e 50%,#ffd54e 51%,#ffa627 100%);
+    color:black;
+}
+/* Revision A11y Style Edits */
+
+/* Offscreen text */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+	/* Below prevents from triggering contrast checkers */
+	background-color: #fff;
+	color: #000;
+}
+
+/* Desktop-width Header */
+a.dropdown-toggle {
+	cursor: pointer;
+}
+.custom-close {
+	display: none !important;
+}
+.custom-open {
+	display: block !important;
+/* 	width: auto !important;
+	top: 100% !important;
+	min-width: 13em;
+	max-width: 20em;
+	left: unset; */
+}
+
+/* Mobile Menu Btn (Hamburger) */
+.custom-menu-btn-focus {
+	outline: 2px solid #330066 ;
+	color: #330066;
+}
+/*
+.custom-mobile-menu-btn {
+	background: transparent;
+}
+.custom-mobile-menu-btn:focus {
+	outline: 2px solid #ff9300;
+}
+*/
+
+/* Skip Link */
+.skip-link-hidden {
+	color: #fff;
+	background-color: #000133;
+	margin: 12px 24px;
+	padding: 12px 6px;
+	border: 1px solid #ff9300 !important;
+}
+
+.skip-link-hidden:not(:focus):not(:active) {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* 'Website' text add */
+.custom-website-text {
+	color: #fff;
+}
+
+/* Footer Social Icons */
+.social-icon a {
+	color: #fff !important;
+}
+
+
+/* Contrast */
+/* Links in News Articles */
+article.post.type-post.style-color-xsdn-bg div.post-body a {
+	color: #330066 !important;
+	text-decoration: underline;
+}
+/* Links in Blog Articles */
+article.post.type-post.style-color-nhtu-bg div.post-body a {
+	color: #330066  !important;
+	text-decoration: underline;
+}
+.btn-accent {
+	color: #010034 !important;
+	font-size: .85em;
+	letter-spacing: 1.2px !important;
+	padding: 13px !important;
+}
+a.bordered-cat {
+	background-color: #010034;
+}
+
+
+
+/* Focus States */
+a.scroll-top:focus, a.scroll-top:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+.page-template-default a:focus, .page-template-default a:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+div#main-logo a.navbar-brand:focus > div {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+footer a:focus, footer a:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+.icon-box-icon a.custom-link:focus, .icon-box-icon a.custom-link:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+.icon-box-icon a.custom-link:focus img, .icon-box-icon a.custom-link:hover img {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+
+.style-dark input:not([type='submit']):not([type='button']):not([type='number']):not([type='checkbox']):not([type='radio']):focus, .style-dark textarea:focus, .style-dark.style-override input:not([type='submit']):not([type='button']):not([type='number']):not([type='checkbox']):not([type='radio']):focus, .style-dark.style-override textarea:focus, .style-light .style-dark input:not([type='submit']):not([type='button']):not([type='number']):not([type='checkbox']):not([type='radio']):focus, .style-light .style-dark textarea:focus {
+	border-bottom-width: 2px;
+}
+.btn-accent:focus, .btn-accent:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+/* Links in Blog Articles */
+article.post.type-post.style-color-nhtu-bg .heading-text a:focus, article.post.type-post.style-color-nhtu-bg .heading-text a:hover {
+	color: #ff9300 !important;
+	text-decoration: underline;
+}
+.tmb-light .t-entry-title a:focus, .tmb-light .t-entry-title a:hover {
+	color: #010034;
+	outline: 2px solid #010034;
+	outline-offset: 2px;
+}
+.tmb-dark a:focus, .tmb-dark a:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+.tmb-light a:focus, .tmb-dark a:hover {
+	color: #ff9300;
+	outline: 2px solid #ff9300 !important;
+	outline-offset: 2px;
+}
+article.style-color-xsdn-bg a:focus, article.style-color-xsdn-bg a:hover {
+	color: #010034 !important;
+	outline: 2px solid #010034;
+	outline-offset: 2px;
+}
+.header-style-dark a:focus, .header-style-dark a:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+
+ul.pagination li a:focus, ul.pagination li a:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+a.bordered-cat:focus, a.bordered-cat:hover {
+	color: #ff9300;
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+article.post.type-post.style-color-nhtu-bg .post-body a:focus, article.post.type-post.style-color-nhtu-bg .post-body a:hover {
+	outline: 2px solid #ff9300;
+	outline-offset: 2px;
+}
+.widget-container a:focus, .widget-container a:hover {
+	outline: 2px solid #ff9300;
+}
+
+
+/* Headings Fixes */
+.custom-h3 h2 {
+	font-size: 36px;
+	font-weight: 400;
+	line-height: 43.2px;
+}
+
+/* Owl Carousel */
+.slider-custom-button-focus {
+	outline: 2px solid #330066;
+	outline-offset: 2px;
+}
+div#testimonials-heading p {
+	float:left;
+}
+button#pause-slides {
+	display: inline-block;
+	margin-top: 16px;
+	float: right;
+	font-size: .6em;
+	color: #fff;
+	background-color: #330066;
+	border-radius: 6px;
+}
+button#pause-slides::after {
+	font-family: "FontAwesome";
+	content: "\f04c";
+}
+
+/* ~weird~ Facebook icon in footer issue */
+.fa-facebook:before {
+  content: "\f09a" !important;
+}
+
+.grad1 {
+  background-color: #ffd54e; /* For browsers that do not support gradients */
+  background-image: linear-gradient(to left, #ffa627 0%,#ffd54e 50%,#ffd54e 51%,#ffa627 100%);
+  color:black;
+}
+
+
+.block_header1{
+    background-color: #000000;
+     box-sizing: border-box;
+}
+ 
+
