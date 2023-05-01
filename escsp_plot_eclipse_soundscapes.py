@@ -20,11 +20,17 @@ raw_data_folder="/Volumes/WD_04/NPS_EclipseSoundScape_2017/AUDIO/BICY/"
 plot_start_time=datetime.time(18,55,59)
 #Day of Plot
 plot_start_day=datetime.date(2017,8,25)
+#Amount of time to plot in seconds
+n_sec=45
+n_sec_time_delta=datetime.timedelta(seconds=n_sec)
 
 
 
 #Get the names of all of the files in the raw_data_folder
 data_file_names=glob.glob(os.path.join(raw_data_folder,"*.wav"))
 #print(data_file_names)
+eclipse_time_file, other_days_at_time=
+
+
  
 

@@ -1,7 +1,7 @@
 if __name__ == "__main__":
     print("Eclipse Soundscapes: Citizen Science Project Library")
 
-"""escsp.py Library for the Eclipse Soundscapes: Citizen Science"""
+"""escsp.py Library for the Eclipse Soundscapes: Citizen Science Project"""
 ###########################################################################
 #Import Libraries section
 import numpy as np 
