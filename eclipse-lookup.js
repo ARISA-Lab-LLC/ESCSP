@@ -1,10 +1,4 @@
 const eclipse_elements = {
-  "10-14-23": [
-    2460232.25047, 18.0, -4.0, 4.0, 73.7, 73.7, 0.169658, 0.4585533, 2.78e-5,
-    -5.43e-6, 0.334859, -0.2413671, 2.4e-5, 3.03e-6, -8.2441902, -0.014888,
-    2.0e-6, 93.5017319, 15.0035286, 0.0, 0.564311, -0.0000891, -1.03e-5,
-    0.018083, -0.0000886, -1.03e-5, 0.0046882, 0.0046648,
-  ],
   "04-08-24": [
     2460409.26284, 18.0, -4.0, 4.0, 74.0, 74.0, -0.318244, 0.5117116, 3.26e-5,
     -8.42e-6, 0.219764, 0.2709589, -5.95e-5, -4.66e-6, 7.5862002, 0.014844,
@@ -20,11 +14,13 @@ var LANGUAGE;
  * Represents an single Eclipse event.
  */
 class EclipseEvent {
-  constructor(date, type, coverage, start, mid, end) {
+  constructor(date, type, coverage, start, totalStart, mid, totalEnd, end) {
     this.date = date;
     this.type = type;
     this.coverage = coverage;
     this.start = start;
+    this.totalStart = totalStart;
+    this.totalEnd = totalEnd;
     this.end = end;
     this.mid = mid;
   }
@@ -50,6 +46,12 @@ class EclipseEvent {
    * @returns The eclipse coverage percentage.
    */
   displayCoverage() {
+    // If eclipse type is partial but coverage is 100% then override
+    // coverage to 99.99%
+    if (type == 1 && Math.floor(this.coverage) == 100) {
+      return "99.99%";
+    }
+
     return this.coverage.toFixed(2) + "%";
   }
 
@@ -75,6 +77,23 @@ class EclipseEvent {
    */
   endTime() {
     return this.convertTime(this.date, this.end);
+  }
+
+
+  /**
+  *
+  * @returns The time of when the total or annular phase begins.
+  */
+  totalStartTime() {
+    return this.convertTime(this.date, this.totalStart);
+  }
+
+  /**
+  *
+  * @returns The time of when the total or annular phase ends.
+  */
+  totalEndTime() {
+    return this.convertTime(this.date, this.totalEnd);
   }
 
   /**
@@ -136,7 +155,7 @@ class EclipseEvent {
     var dateStr = `${date}T${time}Z`;
     var date = new Date(dateStr);
 
-    var options = { hour: "numeric", minute: "numeric" };
+    var options = { hour: "numeric", minute: "numeric", timeZoneName: "short" };
 
     return date.toLocaleTimeString(getLanguageCode(), options);
   }
@@ -166,7 +185,8 @@ jQuery(document).ready(function ($) {
     .getElementById("locationButton")
     .addEventListener("click", getUserLocation, false);
 
-  showView(false, "eclipseTable");
+  showView(false, "partialEclipseTable");
+  showView(false, "totalEclipseTable");
   showView(false, "spinner");
 });
 
@@ -321,6 +341,18 @@ function getZipLocation(event) {
     return;
   }
 
+  if (zipcode.length != 5) {
+    switch (getLanguage()) {
+      case "en":
+        alert("Please enter a 5 digit Zip Code");
+        break;
+      case "es":
+        alert("Ingrese un código postal de 5 dígitos");
+        break;
+    }
+    return;
+  }
+
   showView(true, "spinner");
 
   getLocationFromZipCode(zipcode, function (response) {
@@ -357,7 +389,9 @@ function showUpcomingEclipse(latitude, longitude) {
     gettype(),
     getcoverage(),
     getC1Time(elements),
+    getC2Time(elements),
     getMidTime(elements),
+    getC3Time(elements),
     getC4Time(elements)
   );
 
@@ -369,12 +403,27 @@ function showUpcomingEclipse(latitude, longitude) {
  * @param {*} event Eclipse event.
  */
 function loadTable(event) {
-  document.getElementById("tdDate").innerHTML = event.displayDate();
-  document.getElementById("tdCoverage").innerHTML = event.displayCoverage();
-  document.getElementById("tdEclipseType").innerHTML = event.displayType();
-  document.getElementById("tdEclipseStart").innerHTML = event.startTime();
-  document.getElementById("tdMaxEclipse").innerHTML = event.midTime();
-  document.getElementById("tdEclipseEnd").innerHTML = event.endTime();
+  if (event.type == 3) {
+    document.getElementById("tdTotalDate").innerHTML = event.displayDate();
+    document.getElementById("tdTotalCoverage").innerHTML = event.displayCoverage();
+    document.getElementById("tdTotalEclipseType").innerHTML = event.displayType();
+    document.getElementById("tdTotalEclipseStart").innerHTML = event.startTime();
+    document.getElementById("tdTotalMaxEclipse").innerHTML = event.midTime();
+    document.getElementById("tdTotalEclipseEnd").innerHTML = event.endTime();
+    document.getElementById("tdTotalEclipseFullStart").innerHTML = event.totalStartTime();
+    document.getElementById("tdTotalEclipseFullEnd").innerHTML = event.totalEndTime();
+    
+    showView(false, "partialEclipseTable");
+    showView(true, "totalEclipseTable");
+  } else {
+    document.getElementById("tdDate").innerHTML = event.displayDate();
+    document.getElementById("tdCoverage").innerHTML = event.displayCoverage();
+    document.getElementById("tdEclipseType").innerHTML = event.displayType();
+    document.getElementById("tdEclipseStart").innerHTML = event.startTime();
+    document.getElementById("tdMaxEclipse").innerHTML = event.midTime();
+    document.getElementById("tdEclipseEnd").innerHTML = event.endTime();
 
-  showView(true, "eclipseTable");
+    showView(false, "totalEclipseTable");
+    showView(true, "partialEclipseTable");
+  }
 }
