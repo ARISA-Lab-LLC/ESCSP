@@ -11,9 +11,23 @@ import scipy.io.wavfile as wavfile
 #file handling and misc.
 import os  
 import datetime
+#
+import scipy
+import pandas as pd
+from natsort import natsorted
+import glob
+import numpy as np 
+# for visualizing the data 
+import matplotlib.pyplot as plt 
+import matplotlib.gridspec as gridspec
+import subprocess
+#import moviepy
+from tracemalloc import stop
+from scipy.misc import derivative
+import copy
 ###########################################################################
 
-def get_audio_start_info(files, type="NPS", verbose=None):
+def get_audio_start_info(files, type="AudioMoth", verbose=None):
     """ Return recording start information for a wave file based on the filename. 
     Start time and date returned using datetime format.
     NPS Files return: start_time, start_date, site_name """
@@ -42,6 +56,23 @@ def get_audio_start_info(files, type="NPS", verbose=None):
             site_names.append(site_name) 
 
             return start_times, start_dates, site_names
+        
+        if type == "AudioMoth":
+            filename=filename.split(".")[0]
+            site_name, date_string, time_string=filename.split("_")
+
+            start_date=datetime.date(int(date_string[0:4]),int(date_string[4:6]), int(date_string[6:8]))
+            start_time=datetime.time(int(time_string[0:2]),int(time_string[2:4]),int(time_string[4:6]))
+
+            if verbose != None:
+                 print(start_date)
+                 print(start_time)
+            
+            start_dates.append(start_date)
+            start_times.append(start_time)
+            site_names.append(site_name) 
+
+            return start_times, start_dates, site_names
 
 def get_wav_file_matching_datetime():
     """Get the filenames of wav file that matches the datetime entered and
@@ -50,7 +81,313 @@ def get_wav_file_matching_datetime():
     matching_file_on_other_days=""
     return matching_file, matching_file_on_other_days
 
-def
+def read_config():
+    """ """
+    
+    return 
+
+def get_am_serial_number_from_config(FILE):
+
+    return serial_number
+
+def read_escsp_setup():
+    """read the escsp_setup.cdat csv file that sets filepaths"""
+
+    return escsp_info
+
+def filename_2_datetime(files, type="AudioMoth", verbose=None):
+    """ Return a list if datetimes that correspond to the  """
+    if verbose != None: print("Here 1")
+    date_times=None
+    if len(files) >=1:
+        date_times=[]
+        for file in [files]:
+            #Get the filename
+            if verbose != None: print('file= '+file)
+            filename=(os.path.basename(file).split(".")[0])
+            if verbose != None: print('filename= '+filename)
+
+            if type == "NPS": date_times=None
+
+            if type == "AudioMoth":
+                date_string, time_string=filename.split("_")
+                if verbose != None: print('date_string= '+date_string)
+                if verbose != None: print('time_string= '+time_string)
+
+                #start_date=datetime.date(int(date_string[0:4]),int(date_string[4:6]), int(date_string[6:8]))
+                #start_time=datetime.time(int(time_string[0:2]),int(time_string[2:4]),int(time_string[4:6]))
+
+                year=int(date_string[0:4])
+                month=int(date_string[4:6])
+                day=int(date_string[6:8])
+
+                hour=int(time_string[0:2])
+                minute=int(time_string[2:4])
+                second=int(time_string[4:6])
+
+                dandt=datetime.datetime(year, month, day, hour, minute, second)
+                date_times.append(dandt)
+
+                
+                    
+        return date_times
 
 
+def get_files_between_times(files, start_time, end_time):
+    """Return only the filepaths for the recording files that are between the start_time & the end_time"""
 
+    #I know there is a better way (more matrix) to do this, but I don't have the time to figure it out.
+    return_files=None
+    for file in files:
+        date_and_time=filename_2_datetime(file, type="AudioMoth")
+        date_and_time=date_and_time[0]
+        if date_and_time >= start_time and date_and_time <= end_time: 
+            if not return_files: return_files=[file]
+            else: return_files.append(file)
+
+    return return_files
+
+def combine_wave_files(files, verbose=None):
+    """Open the wave files in the list 'files' and combine them into one long wave file"""
+    
+    audio=False
+    Fs_original=False
+
+    counter=0
+    if verbose: print("Number of files= "+str(len(files)))
+    for file in files:
+        if verbose: print("File for combine files= "+file)
+        if counter == 0: Fs_original, audio = wavfile.read(file) 
+        else: 
+             Fs_2, audio_2 = wavfile.read(file) 
+             if Fs_2 != Fs_original: print("Error in combine_wave_files.  Sample sizes are not the same. File= "+file)
+             audio=np.concatenate((audio, audio_2), axis=0) # scipy.sparse.vstack(audio, audio_2)
+
+        counter+=1
+
+    return audio, Fs_original
+
+def adjust_am_datetime(files, start_time, move=False, verbose=False):
+    """Program to adjust the time of AudioMoth files if the time was not properly set. 
+      Requires a set of recording files and a datetime object of the reported start time."""
+    files=natsorted(files)
+    N_files=len(files)
+    updated_file_names = None
+    date_and_times=[]
+    delta_times=[]
+    counter=1
+    if len(files) >= 1:
+    
+        for file in files:  
+            if verbose: print("File= "+ file)
+            d_and_t_0=filename_2_datetime(file, type="AudioMoth")
+            if counter<= N_files-1:
+                if verbose: print("Calculating "+files[counter]+" - "+file)
+                delta=filename_2_datetime(files[counter], type="AudioMoth")[0]-d_and_t_0[0]
+                delta_times.append(delta)
+
+            date_and_times.append(d_and_t_0[0])
+            if verbose: print("length of date_and_times= "+str(len(date_and_times)))
+            counter+=1
+            #if verbose: print(date_and_times)
+            
+           
+    #print(delta_times)
+
+    return delta_times #updated_file_names
+def get_es_folder_list(top_level, verbose=False, split = False):
+    """ Program to get all of the ES sub-folders from a top level directory."""
+    subfolders = [ f.path for f in os.scandir(top_level) if f.is_dir() ]
+
+    if split:
+        subfolders2=[]
+        for folder in subfolders:
+            if folder.split("_")[len( folder.split("_"))-1] == 'Split':
+                subfolders2.append(folder)
+
+        if len(subfolders2) >= 1 : subfolders=subfolders2
+
+    if verbose: print(subfolders)
+    return subfolders
+                    
+def filename_2_ESID(file):
+    esid=None
+    if os.path.isfile(file):
+        f=os.path.basename(file)
+        #ESID=folder.split("#")[1][0:3]
+        esid=f[5:8]
+
+    if os.path.isdir(file):
+        f=file.split("/")
+        for segment in f:
+            if segment[0:4] == 'ESID':
+                esid=segment[5:8]
+        #f=f[len(f)-2]
+        
+
+    if not  os.path.isdir(file) and not os.path.isfile(file):
+        print('error in filename_2_ESID')
+        print('error in: '+file)
+       
+
+
+    return esid
+
+def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
+    if verbose: print(folder)
+    ESID=filename_2_ESID(folder)
+    if verbose: print(ESID)
+    plot_1_name=os.path.join(folder, "PSD_plot_"+ESID+".png")
+    plot_1a_name=os.path.join(plots_folder, "PSD_plot_"+ESID+".png")
+    eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
+
+    if os.path.isfile(eclipse_data_csv) :
+        df=pd.read_csv(eclipse_data_csv, header=[0])
+        time_format="%Y-%m-%d %H:%M:%S"
+        if verbose: print("success! " + eclipse_data_csv)
+#set the eclipse start time
+        second_contact=str(df.iloc[5, 1])+ " " + str(df.iloc[7, 1])
+        print(second_contact)
+        #eclipse_start_time = datetime.datetime(2023, 10, 14, 17, 34) 
+        eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
+#set the eclipse end time
+        #eclipse_end_time = datetime.datetime(2023, 10, 14, 17, 39)
+        third_contact = str(df.iloc[5, 1])+ " " + str(df.iloc[8, 1])
+        eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+
+        two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
+        two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
+
+        one_day_before_start_time=eclipse_start_time-datetime.timedelta(hours=24)   
+        one_day_before_end_time=eclipse_end_time-datetime.timedelta(hours=24)
+
+#Get all of the recording files at the site
+        recording_files=glob.glob(os.path.join(folder,"*."+"WAV"))
+        if verbose: print(len(recording_files))   
+
+        
+        eclipse_files=None
+        two_days_before_files=None
+        one_day_before_files=None                      
+
+        two_days_before_files=get_files_between_times(recording_files, two_days_before_start_time, two_days_before_end_time)     
+        one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
+        eclipse_files=get_files_between_times(recording_files, eclipse_start_time, eclipse_end_time)
+
+
+#IF the filelist parameter is set, then write the names of the files to the filelst file.  
+        if filelist:
+            if os.path.isfile(filelist):
+                list_file=filelist
+            else:
+                list_file=os.path.join(folder, ESID+'_Analysis_Files.csv')
+            
+            if eclipse_files:
+                df=pd.DataFrame({'Eclipse Files': eclipse_files}) 
+                if two_days_before_files:
+                    df.insert(1, 'Two Days Before Files', two_days_before_files, True)
+                else: df=pd.DataFrame({'Two Days Before Files': ["None"]}) 
+                if one_day_before_files:
+                    df.insert(1, 'One Day Before Files', one_day_before_files, True)
+                else: df=pd.DataFrame({'One Day Before Files': ["None"]})       
+
+            else: 
+                df=pd.DataFrame({'Eclipse Files': ["None"]})    
+            
+            df.to_csv(list_file, index=False)
+
+        if eclipse_files: 
+            eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
+            #f0, eclipse_psd=scipy.signal.periodogram(eclipse_wav, fs_ecl)
+            fig, ax =plt.subplots()
+            ax.psd(eclipse_wav, Fs=fs_ecl, color="orange", label="Eclipse Day")
+
+        if two_days_before_files :
+            print("Length of filelist: " + str(len(two_days_before_files)))
+            two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
+            #f2, two_days_before_psd=scipy.signal.periodogram(two_days_before_wav, fs_tdb)
+            ax.psd(two_days_before_wav, Fs=fs_tdb, color="green", label="Two Days Before")
+
+        if one_day_before_files: 
+            one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files, verbose=verbose)
+            #f1, one_day_before_psd=scipy.signal.periodogram(one_day_before_wav, fs_odb)
+            ax.psd(one_day_before_wav, Fs=fs_odb, color="blue", label="One Day Before")
+
+
+            legend = ax.legend(loc='upper center', shadow=True, fontsize='large')
+            plt.savefig(plot_1_name)
+            if verbose: print("Saved file "+plot_1_name)    
+            plt.savefig(plot_1a_name)
+            if verbose: print("Saved file "+plot_1a_name)
+            plt.close(fig)
+
+    else:
+        print("No file "+eclipse_data_csv+" found.")
+
+
+def escsp_make_clips(folders, analysis_dir, ESID, verbose=False):
+
+    counter=0
+    for folder in folders:
+
+        #ESID=filename_2_ESID(os.path.basename(folder))
+        print(folder)
+        print(ESID)
+        if True :
+            eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
+            df=pd.read_csv(eclipse_data_csv, header=[0])
+            ESID=filename_2_ESID(folder)
+            time_format="%Y-%m-%d %H:%M:%S"
+            if verbose: print("success! " + eclipse_data_csv)
+#set the eclipse start time
+            second_contact=str(df.iloc[5, 1])+ " " + str(df.iloc[7, 1])
+            print(second_contact)
+        #eclipse_start_time = datetime.datetime(2023, 10, 14, 17, 34) 
+            eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
+#set the eclipse end time
+        #eclipse_end_time = datetime.datetime(2023, 10, 14, 17, 39)
+            third_contact = str(df.iloc[5, 1])+ " " + str(df.iloc[8, 1])
+            eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+
+            two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
+            two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
+
+            one_day_before_start_time=eclipse_start_time-datetime.timedelta(hours=24)   
+            one_day_before_end_time=eclipse_end_time-datetime.timedelta(hours=24)
+
+#Get all of the recording files at the site
+            recording_files=glob.glob(os.path.join(folder,"*."+"WAV"))
+            eclipse_files=None
+            two_days_before_files=None
+            one_day_before_files=None
+
+            if verbose: print(len(recording_files))                         
+
+            two_days_before_files=get_files_between_times(recording_files, two_days_before_start_time, two_days_before_end_time)
+            one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
+            eclipse_files=get_files_between_times(recording_files, eclipse_start_time, eclipse_end_time)
+
+
+            if eclipse_files: 
+                filename=os.path.join(analysis_dir,"ESID#"+str(ESID)+"eclipse.wav") 
+                eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
+                wavfile.write(filename, fs_ecl, eclipse_wav)
+
+            if two_days_before_files :
+                filename=os.path.join(analysis_dir,"ESID#"+str(ESID)+"two_days_before.wav") 
+                two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
+                wavfile.write(filename, fs_tdb, two_days_before_wav)
+
+
+            if one_day_before_files: 
+                filename=os.path.join(analysis_dir,"ESID#"+str(ESID)+"one_day_before.wav") 
+                one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files)                
+                wavfile.write(filename, fs_tdb, two_days_before_wav)
+        else:
+            print("Error. Folder: "+folder)
+
+
+        
+    
+    
+    

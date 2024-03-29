@@ -1,4 +1,7 @@
 #escsp_audio_change.py
+"""
+The purpose of escsp_audio_change.py is to detect changes in a specific frequency band between the days before the eclipse and the day of the eclipse.
+"""
 ###########################################################################
 #Import Libraries section
 import pickletools
