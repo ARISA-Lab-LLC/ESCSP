@@ -325,14 +325,15 @@ def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
         print("No file "+eclipse_data_csv+" found.")
 
 
-def escsp_make_clips(folders, analysis_dir, ESID, verbose=False):
+def escsp_make_clips(folders, youtube_folder, verbose=False):
 
     counter=0
     for folder in folders:
 
         #ESID=filename_2_ESID(os.path.basename(folder))
-        print(folder)
-        print(ESID)
+        if verbose: print("folder= "+folder)
+        ESID=filename_2_ESID(folder)
+        if verbose: print("ESID#= "+ESID)
         if True :
             eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
             df=pd.read_csv(eclipse_data_csv, header=[0])
