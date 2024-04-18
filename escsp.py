@@ -26,6 +26,9 @@ from tracemalloc import stop
 from scipy.misc import derivative
 import copy
 ###########################################################################
+#
+user_images=None
+###########################################################################
 
 def get_audio_start_info(files, type="AudioMoth", verbose=None):
     """ Return recording start information for a wave file based on the filename. 
@@ -244,16 +247,22 @@ def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
     if os.path.isfile(eclipse_data_csv) :
         df=pd.read_csv(eclipse_data_csv, header=[0])
         time_format="%Y-%m-%d %H:%M:%S"
-        if verbose: print("success! " + eclipse_data_csv)
+        if verbose: print("success! " + eclipse_data_csv) 
+        if eclipse_type == "Annular" or eclipse_type == "Total":
 #set the eclipse start time
-        second_contact=str(df.iloc[5, 1])+ " " + str(df.iloc[7, 1])
-        print(second_contact)
+            second_contact=str(df.iloc[5, 1])+ " " + str(df.iloc[7, 1])
+            print(second_contact)
         #eclipse_start_time = datetime.datetime(2023, 10, 14, 17, 34) 
-        eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
+            eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
 #set the eclipse end time
         #eclipse_end_time = datetime.datetime(2023, 10, 14, 17, 39)
-        third_contact = str(df.iloc[5, 1])+ " " + str(df.iloc[8, 1])
-        eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+            third_contact = str(df.iloc[5, 1])+ " " + str(df.iloc[8, 1])
+            eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+        else:
+            max_eclipse=datetime.datetime.strptime(
+                str(df.iloc[5, 1])+ " " + str(df.iloc[10, 1]), time_format) 
+            eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
+            eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
 
         two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
         two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
@@ -324,31 +333,59 @@ def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
     else:
         print("No file "+eclipse_data_csv+" found.")
 
+def get_eclipse_images(ESID, eclipse_type=None, user_images=None):
+    if user_images == None:
+            eclipse_images=[os.path.join(youtube_assets_folder,"Annular_Eclipse_YouTube_Image.jpg"),
+                                os.path.join(youtube_assets_folder,"Partial_Eclipse_YouTube_Image.jpg"),
+                                os.path.join(youtube_assets_folder,"Non-eclipse_days_YouTube_Image_Outdoor_Tree_Picture.jpg")]
+            
+            if eclipse_type != None:
+                if eclipse_type == "Annular" : eclipse_image_file=eclipse_images[0]
+                if eclipse_type == "Partial" : eclipse_image_file=eclipse_images[1]
+                if eclipse_type == "Non-Eclipse" : eclipse_image_file=eclipse_images[2]
+    
+    return eclipse_image_file
+                
 
-def escsp_make_clips(folders, youtube_folder, verbose=False):
+def escsp_make_clips(folders, youtube_folder,youtube_assets_folder,verbose=False):
+    
 
-    counter=0
+    ffmpeg_call_temp=["ffmpeg -loop 1 -i ",
+                " -i ",
+                " -r 1 -c:v libx264 -preset slow ",
+                "-tune stillimage -c:a copy "] 
+    
     for folder in folders:
 
         #ESID=filename_2_ESID(os.path.basename(folder))
         if verbose: print("folder= "+folder)
         ESID=filename_2_ESID(folder)
         if verbose: print("ESID#= "+ESID)
-        if True :
-            eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
+        eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
+        spreadsheet_exist=os.path.isfile(eclipse_data_csv)
+
+        if spreadsheet_exist :
+            
             df=pd.read_csv(eclipse_data_csv, header=[0])
-            ESID=filename_2_ESID(folder)
-            time_format="%Y-%m-%d %H:%M:%S"
             if verbose: print("success! " + eclipse_data_csv)
+
+            eclipse_type=df.iloc[5, 1]
+
+            time_format="%Y-%m-%d %H:%M:%S"
+
+            if eclipse_type == "Annular" or eclipse_type == "Total":
 #set the eclipse start time
-            second_contact=str(df.iloc[5, 1])+ " " + str(df.iloc[7, 1])
-            print(second_contact)
-        #eclipse_start_time = datetime.datetime(2023, 10, 14, 17, 34) 
-            eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
+                second_contact=str(df.iloc[5, 1])+ " " + str(df.iloc[7, 1])
+                if verbose: print(second_contact)
+                eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
 #set the eclipse end time
-        #eclipse_end_time = datetime.datetime(2023, 10, 14, 17, 39)
-            third_contact = str(df.iloc[5, 1])+ " " + str(df.iloc[8, 1])
-            eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+                third_contact = str(df.iloc[5, 1])+ " " + str(df.iloc[8, 1])
+                eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+            else: #Set the range to be 3 minutes before and after the eclipse.
+                max_eclipse=datetime.datetime.strptime(
+                    str(df.iloc[5, 1])+ " " + str(df.iloc[10, 1]), time_format) 
+                eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
+                eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
 
             two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
             two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
@@ -362,7 +399,8 @@ def escsp_make_clips(folders, youtube_folder, verbose=False):
             two_days_before_files=None
             one_day_before_files=None
 
-            if verbose: print(len(recording_files))                         
+
+            if verbose: print("Number of audio files+ "+str(len(recording_files)))                         
 
             two_days_before_files=get_files_between_times(recording_files, two_days_before_start_time, two_days_before_end_time)
             one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
@@ -370,20 +408,36 @@ def escsp_make_clips(folders, youtube_folder, verbose=False):
 
 
             if eclipse_files: 
-                filename=os.path.join(analysis_dir,"ESID#"+str(ESID)+"eclipse.wav") 
+                filename=os.path.join(youtube_folder,"ESID#"+str(ESID)+"_"eclipse_type+"_eclipse_3minute.wav") 
+                outname=os.path.join(youtube_folder,
+                                     "ESID#"+str(ESID)+".mp3")
+                
+                eclipse_image_file=get_eclipse_images(ESID, eclipse_type=eclipse_type, user_images=user_images)
+
+                ffmpeg_call=ffmpeg_call_temp[0]+eclipse_image_file
+                ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[1]+filename+ffmpeg_call_temp[2]
+                ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[3]
+                ffmpeg_call=ffmpeg_call+outname 
+
+
+
+                #ffmpeg -loop 1 -i input_image.jpg -i input_audio.mp3 -r 1 -c:v libx264 -preset slow -tune stillimage -crf 18 -c:a copy -shortest -s 1280x720 output_video.mp4
+
                 eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
                 wavfile.write(filename, fs_ecl, eclipse_wav)
 
             if two_days_before_files :
-                filename=os.path.join(analysis_dir,"ESID#"+str(ESID)+"two_days_before.wav") 
+                filename=os.path.join(youtube_folder,"ESID#"+str(ESID)+"_"+eclipse_type+"_two_days_before_3minute.wav") 
                 two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
                 wavfile.write(filename, fs_tdb, two_days_before_wav)
+                if eclipse_type == "Annular" : eclipse_image_file=eclipse_images[2]
 
 
             if one_day_before_files: 
-                filename=os.path.join(analysis_dir,"ESID#"+str(ESID)+"one_day_before.wav") 
+                filename=os.path.join(youtube_folder,"ESID#"+str(ESID)+"_"+eclipse_type+"_one_day_before_3minute.wav") 
                 one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files)                
-                wavfile.write(filename, fs_tdb, two_days_before_wav)
+                wavfile.write(filename, fs_tdb, one_day_before_wav)
+                if eclipse_type == "" : eclipse_image_file=eclipse_images[2]
         else:
             print("Error. Folder: "+folder)
 
