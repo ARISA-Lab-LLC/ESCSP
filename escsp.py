@@ -25,11 +25,11 @@ import subprocess
 from tracemalloc import stop
 from scipy.misc import derivative
 import copy
+from moviepy.editor import *
 ###########################################################################
 #
 user_images=None
-youtube_assets_folder=""
-youtube_folder=""
+youtube_assets_folder="./YouTube_Assets/"
 ###########################################################################
 
 def get_audio_start_info(files, type="AudioMoth", verbose=None):
@@ -100,6 +100,63 @@ def read_escsp_setup():
 
     return escsp_info
 
+def escsp_read_eclipse_csv(eclipse_data_csv, verbose=None):
+    """"""
+    if os.path.isfile(eclipse_data_csv) :
+        df=pd.read_csv(eclipse_data_csv, header=[0])
+        time_format="%Y-%m-%d %H:%M:%S"
+        if verbose: print("success! " + eclipse_data_csv) 
+        eclipse_info={"ESID": df.iloc[0, 1], 
+                  "Latitude":df.iloc[1, 1], 
+                  "Longitude" :df.iloc[2, 1],
+                  "Eclipse_type" :df.iloc[3, 1], 
+                  "CoveragePercent" :df.iloc[4, 1], 
+                  "FirstContactDate" :df.iloc[5, 1], 
+                  "FirstContactTimeUTC" :df.iloc[6, 1], 
+                  "SecondContactTimeUTC" :df.iloc[7, 1], 
+                  "ThirdContactTimeUTC" :df.iloc[8, 1], 
+                  "FourthContactTimeUTC" :df.iloc[9, 1], 
+                  "MaxEclipseTimeUTC" :df.iloc[10, 1] }
+
+    else: print('Error! No file named '+eclipse_data_csv)
+
+    return eclipse_info
+
+def escsp_get_eclipse_time_trio(eclipse_info, verbose=None):
+    time_format="%Y-%m-%d %H:%M:%S"
+    eclipse_type=eclipse_info["Eclipse_type"]
+    if eclipse_type == "Annular" or eclipse_type == "Total":
+        second_contact=eclipse_info["FirstContactDate"] + " " +eclipse_info["SecondContactTimeUTC"] 
+        if verbose: print("eclipse_type: " + eclipse_type)
+         
+        if verbose: print(second_contact)
+        eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
+#set the eclipse end time
+        third_contact = eclipse_info["FirstContactDate"] + " " +eclipse_info["ThirdContactTimeUTC"] 
+        eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+
+    else: #Set the range to be 3 minutes before and after the eclipse.
+        max_eclipse= eclipse_info["FirstContactDate"] + " " +eclipse_info["MaxEclipseTimeUTC"] 
+        eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
+        eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
+
+    two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
+    two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
+
+    one_day_before_start_time=eclipse_start_time-datetime.timedelta(hours=24)   
+    one_day_before_end_time=eclipse_end_time-datetime.timedelta(hours=24)
+    
+    eclipse_time_trio={
+        "eclipse_start_time":eclipse_start_time,
+        "eclipse_end_time":eclipse_end_time,
+        "two_days_before_start_time":two_days_before_start_time,
+        "two_days_before_end_time":two_days_before_end_time,
+        "one_day_before_start_time":one_day_before_start_time,
+        "one_day_before_end_time":one_day_before_end_time
+        }
+    
+    return eclipse_time_trio
+    
 def filename_2_datetime(files, type="AudioMoth", verbose=None):
     """ Return a list if datetimes that correspond to the  """
     if verbose != None: print("Here 1")
@@ -347,19 +404,52 @@ def get_eclipse_images(ESID, eclipse_type=None, user_images=None, verbose=False)
             if eclipse_type == "Annular" : eclipse_image_file=eclipse_images[0]
             if eclipse_type == "Partial" : eclipse_image_file=eclipse_images[1]
             if eclipse_type == "Non-Eclipse" : eclipse_image_file=eclipse_images[2]
+            if eclipse_type == "Non-Eclipse-Day" : eclipse_image_file=eclipse_images[2]
             if eclipse_type == "Total" : eclipse_image_file=eclipse_images[3]
 
         if not eclipse_image_file: eclipse_image_file=eclipse_images[2]
         return eclipse_image_file
-                
+
+def escsp_mk_video_clip(audio_filename=None, eclipse_image_file=None,
+                        video_filename=None,verbose=False):
+    if verbose:
+         print("audio_filename: "+audio_filename)
+         print("eclipse_image_file: "+eclipse_image_file)
+         print("video_filename: "+video_filename)
+         
+    ffmpeg_call_temp=["ffmpeg -loop 1 -i ",
+                " -i ",
+                " -r 1 -c:v -vcodec libx264 -acodec aac -preset slow ",
+                "-tune stillimage -c:a copy -shortest "] 
+
+    #ffmpeg -loop 1 -i input_image.jpg -i input_audio.mp3 -r 1 -c:v libx264 -preset slow -tune stillimage -crf 18 -c:a copy -shortest -s 1280x720 output_video.mp4
+   
+    #ffmpeg_call=ffmpeg_call_temp[0]+eclipse_image_file
+    #ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[1]+audio_filename+ffmpeg_call_temp[2]
+    #ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[3]
+    #ffmpeg_call=ffmpeg_call+video_filename
+
+    
+    #subprocess.call(ffmpeg_call, shell = True)    
+
+
+    # Import the audio(Insert to location of your audio instead of audioClip.mp3)
+    audio = AudioFileClip(audio_filename)
+    # Import the Image and set its duration same as the audio (Insert the location 
+    #of your photo instead of photo.jpg)
+    clip = ImageClip(eclipse_image_file).set_duration(audio.duration)
+    # Set the audio of the clip
+    clip = clip.set_audio(audio)
+    # Export the clip
+    clip.write_videofile(video_filename, fps=24)
+
+    if verbose:
+        if os.path.isfile(video_filename): print("Success! : "+video_filename)
+        else:print("Failure! : "+video_filename)
 
 def escsp_make_clips(folders, youtube_folder,verbose=False):
     
 #templade for an FFMPEG call to make a mp4 movie from a still image and a sound file.
-    ffmpeg_call_temp=["ffmpeg -loop 1 -i ",
-                " -i ",
-                " -r 1 -c:v libx264 -preset slow ",
-                "-tune stillimage -c:a copy "] 
     
     for folder in folders:
 
@@ -370,34 +460,14 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
         eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
         spreadsheet_exist=os.path.isfile(eclipse_data_csv)
 
-        if spreadsheet_exist :
-            
-            df=pd.read_csv(eclipse_data_csv, header=[0])
-            if verbose: print("success! " + eclipse_data_csv)
+        if spreadsheet_exist : 
 
-            eclipse_type=df.iloc[5, 1]
+            #time_format="%Y-%m-%d %H:%M:%S"
+            eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, verbose=verbose)
 
-            time_format="%Y-%m-%d %H:%M:%S"
 
-            if eclipse_type == "Annular" or eclipse_type == "Total":
-#set the eclipse start time
-                second_contact=str(df.iloc[5, 1])+ " " + str(df.iloc[7, 1])
-                if verbose: print(second_contact)
-                eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
-#set the eclipse end time
-                third_contact = str(df.iloc[5, 1])+ " " + str(df.iloc[8, 1])
-                eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
-            else: #Set the range to be 3 minutes before and after the eclipse.
-                max_eclipse=datetime.datetime.strptime(
-                    str(df.iloc[5, 1])+ " " + str(df.iloc[10, 1]), time_format) 
-                eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
-                eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
-
-            two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
-            two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
-
-            one_day_before_start_time=eclipse_start_time-datetime.timedelta(hours=24)   
-            one_day_before_end_time=eclipse_end_time-datetime.timedelta(hours=24)
+            eclipse_type=eclipse_info["Eclipse_type"]
+            eclipse_time_trio=escsp_get_eclipse_time_trio(eclipse_info, verbose=verbose)
 
 #Get all of the recording files at the site
             recording_files=glob.glob(os.path.join(folder,"*."+"WAV"))
@@ -408,11 +478,14 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
 
             if verbose: print("Number of audio files+ "+str(len(recording_files)))                         
 
-            two_days_before_files=get_files_between_times(recording_files, two_days_before_start_time, two_days_before_end_time)
-            one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
-            eclipse_files=get_files_between_times(recording_files, eclipse_start_time, eclipse_end_time)
+            two_days_before_files=get_files_between_times(recording_files, eclipse_time_trio["two_days_before_start_time"],  
+                                                          eclipse_time_trio["two_days_before_end_time"])
+            one_day_before_files=get_files_between_times(recording_files, eclipse_time_trio["one_day_before_start_time"], 
+                                                         eclipse_time_trio["one_day_before_end_time"])
+            eclipse_files=get_files_between_times(recording_files, eclipse_time_trio["eclipse_start_time"], 
+                                                  eclipse_time_trio["eclipse_end_time"])
 
-            eclipse_date_str=max_eclipse.strftime('%Y-%m-%d')
+            eclipse_date_str=eclipse_info["FirstContactDate"]
             if eclipse_files: 
                 if verbose: print("youtube_folder= "+youtube_folder)
                 clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_eclipse_3minute"
@@ -426,15 +499,12 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
                 #Make 3 minute audioclip
                 eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
                 wavfile.write(audio_filename, fs_ecl, eclipse_wav)
+                escsp_mk_video_clip(audio_filename=audio_filename, eclipse_image_file=eclipse_image_file,
+                        video_filename=you_tube_filename,verbose=verbose)
 
-                ffmpeg_call=ffmpeg_call_temp[0]+eclipse_image_file
-                ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[1]+audio_filename+ffmpeg_call_temp[2]
-                ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[3]
-                ffmpeg_call=ffmpeg_call+you_tube_filename 
-
-                #ffmpeg -loop 1 -i input_image.jpg -i input_audio.mp3 -r 1 -c:v libx264 -preset slow -tune stillimage -crf 18 -c:a copy -shortest -s 1280x720 output_video.mp4
 
             if two_days_before_files :
+                eclipse_type="Non-Eclipse-Day"
                 if verbose: print("youtube_folder= "+youtube_folder)
                 clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_two_days_before_3minute"
                 if verbose: print("clip_title= "+clip_title)
@@ -446,11 +516,14 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
                 two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
                 wavfile.write(audio_filename, fs_tdb, two_days_before_wav)
 
-                eclipse_image_file=get_eclipse_images(ESID, eclipse_type="Non-Eclipse", user_images=user_images)
+                eclipse_image_file=get_eclipse_images(ESID, eclipse_type=eclipse_type, user_images=user_images)
                 
+                escsp_mk_video_clip(audio_filename=audio_filename, eclipse_image_file=eclipse_image_file,
+                        video_filename=you_tube_filename,verbose=verbose)
 
 
             if one_day_before_files: 
+                eclipse_type="Non-Eclipse-Day"
                 clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_one_day_before_3minute"
                 if verbose: print("clip_title= "+clip_title)
                 
@@ -461,7 +534,11 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
                 one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files)                
                 wavfile.write(audio_filename, fs_odb, one_day_before_wav)
 
-                eclipse_image_file=get_eclipse_images(ESID, eclipse_type="Non-Eclipse", user_images=user_images)
+                eclipse_image_file=get_eclipse_images(ESID, eclipse_type=eclipse_type, user_images=user_images)
+                escsp_mk_video_clip(audio_filename=audio_filename, eclipse_image_file=eclipse_image_file,
+                        video_filename=you_tube_filename,verbose=verbose)
+
+           
         else:
             print("Error. Folder: "+folder+" No Spreadsheet.")
 
