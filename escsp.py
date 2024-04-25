@@ -28,6 +28,8 @@ import copy
 ###########################################################################
 #
 user_images=None
+youtube_assets_folder=""
+youtube_folder=""
 ###########################################################################
 
 def get_audio_start_info(files, type="AudioMoth", verbose=None):
@@ -333,23 +335,27 @@ def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
     else:
         print("No file "+eclipse_data_csv+" found.")
 
-def get_eclipse_images(ESID, eclipse_type=None, user_images=None):
-    if user_images == None:
-            eclipse_images=[os.path.join(youtube_assets_folder,"Annular_Eclipse_YouTube_Image.jpg"),
-                                os.path.join(youtube_assets_folder,"Partial_Eclipse_YouTube_Image.jpg"),
-                                os.path.join(youtube_assets_folder,"Non-eclipse_days_YouTube_Image_Outdoor_Tree_Picture.jpg")]
+def get_eclipse_images(ESID, eclipse_type=None, user_images=None, verbose=False):
+        if verbose: print("eclipse_type= "+eclipse_type)
+        eclipse_image_file=None
+        eclipse_images=[os.path.join(youtube_assets_folder,"Annular_Eclipse_YouTube_Image.jpg"),
+                            os.path.join(youtube_assets_folder,"Partial_Eclipse_YouTube_Image.jpg"),
+                            os.path.join(youtube_assets_folder,"Non-eclipse_days_YouTube_Image_Outdoor_Tree_Picture.jpg"),
+                            os.path.join(youtube_assets_folder,"Total_Eclipse_image_YouTube.jpg")]
             
-            if eclipse_type != None:
-                if eclipse_type == "Annular" : eclipse_image_file=eclipse_images[0]
-                if eclipse_type == "Partial" : eclipse_image_file=eclipse_images[1]
-                if eclipse_type == "Non-Eclipse" : eclipse_image_file=eclipse_images[2]
-    
-    return eclipse_image_file
+        if eclipse_type != None:
+            if eclipse_type == "Annular" : eclipse_image_file=eclipse_images[0]
+            if eclipse_type == "Partial" : eclipse_image_file=eclipse_images[1]
+            if eclipse_type == "Non-Eclipse" : eclipse_image_file=eclipse_images[2]
+            if eclipse_type == "Total" : eclipse_image_file=eclipse_images[3]
+
+        if not eclipse_image_file: eclipse_image_file=eclipse_images[2]
+        return eclipse_image_file
                 
 
-def escsp_make_clips(folders, youtube_folder,youtube_assets_folder,verbose=False):
+def escsp_make_clips(folders, youtube_folder,verbose=False):
     
-
+#templade for an FFMPEG call to make a mp4 movie from a still image and a sound file.
     ffmpeg_call_temp=["ffmpeg -loop 1 -i ",
                 " -i ",
                 " -r 1 -c:v libx264 -preset slow ",
@@ -406,40 +412,58 @@ def escsp_make_clips(folders, youtube_folder,youtube_assets_folder,verbose=False
             one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
             eclipse_files=get_files_between_times(recording_files, eclipse_start_time, eclipse_end_time)
 
-
+            eclipse_date_str=max_eclipse.strftime('%Y-%m-%d')
             if eclipse_files: 
-                filename=os.path.join(youtube_folder,"ESID#"+str(ESID)+"_"eclipse_type+"_eclipse_3minute.wav") 
-                outname=os.path.join(youtube_folder,
-                                     "ESID#"+str(ESID)+".mp3")
+                if verbose: print("youtube_folder= "+youtube_folder)
+                clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_eclipse_3minute"
+                if verbose: print("clip_title= "+clip_title)
+
+                audio_filename=os.path.join(youtube_folder,clip_title+".wav") 
+                you_tube_filename=os.path.join(youtube_folder,clip_title+".mp4")
                 
-                eclipse_image_file=get_eclipse_images(ESID, eclipse_type=eclipse_type, user_images=user_images)
+                eclipse_image_file=get_eclipse_images(ESID, eclipse_type=eclipse_type, user_images=user_images, verbose=verbose)
+
+                #Make 3 minute audioclip
+                eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
+                wavfile.write(audio_filename, fs_ecl, eclipse_wav)
 
                 ffmpeg_call=ffmpeg_call_temp[0]+eclipse_image_file
-                ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[1]+filename+ffmpeg_call_temp[2]
+                ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[1]+audio_filename+ffmpeg_call_temp[2]
                 ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[3]
-                ffmpeg_call=ffmpeg_call+outname 
-
-
+                ffmpeg_call=ffmpeg_call+you_tube_filename 
 
                 #ffmpeg -loop 1 -i input_image.jpg -i input_audio.mp3 -r 1 -c:v libx264 -preset slow -tune stillimage -crf 18 -c:a copy -shortest -s 1280x720 output_video.mp4
 
-                eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
-                wavfile.write(filename, fs_ecl, eclipse_wav)
-
             if two_days_before_files :
-                filename=os.path.join(youtube_folder,"ESID#"+str(ESID)+"_"+eclipse_type+"_two_days_before_3minute.wav") 
+                if verbose: print("youtube_folder= "+youtube_folder)
+                clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_two_days_before_3minute"
+                if verbose: print("clip_title= "+clip_title)
+                
+                audio_filename=os.path.join(youtube_folder,clip_title+".wav") 
+                you_tube_filename=os.path.join(youtube_folder,clip_title+".mp4")
+                
+                #Make 3 minute audioclip
                 two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
-                wavfile.write(filename, fs_tdb, two_days_before_wav)
-                if eclipse_type == "Annular" : eclipse_image_file=eclipse_images[2]
+                wavfile.write(audio_filename, fs_tdb, two_days_before_wav)
+
+                eclipse_image_file=get_eclipse_images(ESID, eclipse_type="Non-Eclipse", user_images=user_images)
+                
 
 
             if one_day_before_files: 
-                filename=os.path.join(youtube_folder,"ESID#"+str(ESID)+"_"+eclipse_type+"_one_day_before_3minute.wav") 
+                clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_one_day_before_3minute"
+                if verbose: print("clip_title= "+clip_title)
+                
+                audio_filename=os.path.join(youtube_folder,clip_title+".wav") 
+                you_tube_filename=os.path.join(youtube_folder,clip_title+".mp4")
+
+                #Make 3 minute audioclip
                 one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files)                
-                wavfile.write(filename, fs_tdb, one_day_before_wav)
-                if eclipse_type == "" : eclipse_image_file=eclipse_images[2]
+                wavfile.write(audio_filename, fs_odb, one_day_before_wav)
+
+                eclipse_image_file=get_eclipse_images(ESID, eclipse_type="Non-Eclipse", user_images=user_images)
         else:
-            print("Error. Folder: "+folder)
+            print("Error. Folder: "+folder+" No Spreadsheet.")
 
 
         
