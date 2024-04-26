@@ -30,6 +30,8 @@ from moviepy.editor import *
 #
 user_images=None
 youtube_assets_folder="./YouTube_Assets/"
+privacyStatus="private"
+#privacyStatus="public"
 ###########################################################################
 
 def get_audio_start_info(files, type="AudioMoth", verbose=None):
@@ -392,23 +394,98 @@ def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
     else:
         print("No file "+eclipse_data_csv+" found.")
 
+
+def escsp_mk_youtube_description(eclipse_info, Recording_Date,Recording_Start_Time,
+                                 Recording_type, Photo_Credit,Photo_Description):
+    if eclipse_info["FirstContactDate"] == "2023-10-14":
+        file1=os.path.join(youtube_assets_folder,"annular_youtube_text_00.txt")
+        file2=os.path.join(youtube_assets_folder,"annular_youtube_text_02.txt")
+    else:
+        file1=os.path.join(youtube_assets_folder,"total_youtube_text_00.txt")
+        file2=os.path.join(youtube_assets_folder,"total_youtube_text_02.txt")
+
+    f1=open(file1, "r")
+    f2=open(file2, "r")
+
+    text1=f1.read()
+    text2=f2.read()
+
+    f1.close()
+    f2.close()
+
+    text=text1
+    text=text+"Recording Date: "+Recording_Date+"\n"
+    text=text+"Recording Start Time: "+Recording_Start_Time+"\n"
+    text=text+"Latitude: "+ eclipse_info["Latitude"] +"\n"
+    text=text+"Longitude: "+ eclipse_info["Longitude"]  +"\n"
+    text=text+"Type of Eclipse: " + Recording_type +"\n\n"
+    text=text+text2
+    text=text+"\n\n"
+    text=text+"Photo Credit: " +Photo_Credit+ "\n"
+    text=text+"Photo Description: " +Photo_Description+ "\n"
+
+    return text
+
+
+
+    
+
+    
 def get_eclipse_images(ESID, eclipse_type=None, user_images=None, verbose=False):
         if verbose: print("eclipse_type= "+eclipse_type)
         eclipse_image_file=None
+        Photo_Credit=None
+        Photo_Description=None 
         eclipse_images=[os.path.join(youtube_assets_folder,"Annular_Eclipse_YouTube_Image.jpg"),
                             os.path.join(youtube_assets_folder,"Partial_Eclipse_YouTube_Image.jpg"),
                             os.path.join(youtube_assets_folder,"Non-eclipse_days_YouTube_Image_Outdoor_Tree_Picture.jpg"),
                             os.path.join(youtube_assets_folder,"Total_Eclipse_image_YouTube.jpg")]
             
         if eclipse_type != None:
-            if eclipse_type == "Annular" : eclipse_image_file=eclipse_images[0]
-            if eclipse_type == "Partial" : eclipse_image_file=eclipse_images[1]
-            if eclipse_type == "Non-Eclipse" : eclipse_image_file=eclipse_images[2]
-            if eclipse_type == "Non-Eclipse-Day" : eclipse_image_file=eclipse_images[2]
-            if eclipse_type == "Total" : eclipse_image_file=eclipse_images[3]
+            if eclipse_type == "Annular" : 
+                eclipse_image_file=eclipse_images[0]
+                Photo_Credit="Shutterstock: Contributor Hyserb"
+                Photo_Description="Annular Solar Eclipse of the Sun in Hofuf, Saudi Arabia."
+            if eclipse_type == "Partial" : 
+                eclipse_image_file=eclipse_images[1]
+                Photo_Credit="Shutterstock"
+                Photo_Description=" Blank for now"
+            if eclipse_type == "Non-Eclipse" : 
+                eclipse_image_file=eclipse_images[2]
+                Photo_Credit="Shutterstock"
+                Photo_Description="Blank for now"
+            if eclipse_type == "Non-Eclipse-Day" : 
+                eclipse_image_file=eclipse_images[2]
+                Photo_Credit="Shutterstock"
+                Photo_Description=" Blank for now"
+            if eclipse_type == "Total" : 
+                eclipse_image_file=eclipse_images[3]
+                Photo_Credit="Evan Zucker"
+                Photo_Description="Blank for now"
 
-        if not eclipse_image_file: eclipse_image_file=eclipse_images[2]
-        return eclipse_image_file
+        if not eclipse_image_file: 
+            eclipse_image_file=eclipse_images[2]
+            Photo_Credit="Shutterstock"
+            Photo_Description=" Blank for now"
+
+        return eclipse_image_file, Photo_Credit, Photo_Description
+
+def escsp_mk_youtube_csv(you_tube_filename, clip_title, description, clip_basename, eclipse_info, youtube_folder):
+
+    keywords="solar eclipse, soundscapes, Eclipse Soundscapes, citizen science, NASA, "+eclipse_info["Eclipse_type"]+" eclipse"
+    youtube_dict={"file":[you_tube_filename],
+                  "title":[clip_title], 
+                  "description":[description],
+                  "keywords":[keywords],
+                  "category":["14"],
+                  privacyStatus:[privacyStatus]}
+    df=pd.DataFrame.from_dict(youtube_dict)
+    df.to_csv(os.path.join(youtube_folder,clip_basename+"_youtube.csv"), index=False)
+    
+    
+    
+
+
 
 def escsp_mk_video_clip(audio_filename=None, eclipse_image_file=None,
                         video_filename=None,verbose=False):
@@ -441,7 +518,9 @@ def escsp_mk_video_clip(audio_filename=None, eclipse_image_file=None,
     # Set the audio of the clip
     clip = clip.set_audio(audio)
     # Export the clip
-    clip.write_videofile(video_filename, fps=24)
+    clip.write_videofile(video_filename, 
+                         codec='libx264', 
+                         audio_codec='aac', fps=24)
 
     if verbose:
         if os.path.isfile(video_filename): print("Success! : "+video_filename)
@@ -488,56 +567,98 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
             eclipse_date_str=eclipse_info["FirstContactDate"]
             if eclipse_files: 
                 if verbose: print("youtube_folder= "+youtube_folder)
-                clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_eclipse_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_eclipse_3minute"
+                clip_title=clip_basename.replace('_', ' ')
+                if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
 
-                audio_filename=os.path.join(youtube_folder,clip_title+".wav") 
-                you_tube_filename=os.path.join(youtube_folder,clip_title+".mp4")
+                audio_filename=os.path.join(youtube_folder,clip_basename+".wav") 
+                you_tube_filename=os.path.join(youtube_folder,clip_basename+".mp4")
                 
-                eclipse_image_file=get_eclipse_images(ESID, eclipse_type=eclipse_type, user_images=user_images, verbose=verbose)
+                
+                eclipse_image_file, Photo_Credit, Photo_Description=get_eclipse_images(ESID, 
+                                                                                       eclipse_type=eclipse_type, 
+                                                                                       user_images=user_images, 
+                                                                                       verbose=verbose)
 
                 #Make 3 minute audioclip
                 eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
                 wavfile.write(audio_filename, fs_ecl, eclipse_wav)
                 escsp_mk_video_clip(audio_filename=audio_filename, eclipse_image_file=eclipse_image_file,
                         video_filename=you_tube_filename,verbose=verbose)
+                Recording_Date=eclipse_time_trio["eclipse_start_time"].strftime('%Y-%m-%d')
+                Recording_Start_Time=eclipse_time_trio["eclipse_start_time"].strftime('%H:%M')+ " UTC"
+                Recording_type=eclipse_info["Eclipse_type"] + "Eclipse, day of the eclipse."
+                description=escsp_mk_youtube_description(eclipse_info, Recording_Date,Recording_Start_Time,
+                                 Recording_type, Photo_Credit,Photo_Description)
+                
+                escsp_mk_youtube_csv(you_tube_filename, clip_title, description, clip_basename, eclipse_info, youtube_folder)
+
 
 
             if two_days_before_files :
                 eclipse_type="Non-Eclipse-Day"
                 if verbose: print("youtube_folder= "+youtube_folder)
-                clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_two_days_before_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_two_days_before_3minute"
+                clip_title=clip_basename.replace('_', ' ')
+                if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
                 
-                audio_filename=os.path.join(youtube_folder,clip_title+".wav") 
-                you_tube_filename=os.path.join(youtube_folder,clip_title+".mp4")
+                audio_filename=os.path.join(youtube_folder,clip_basename+".wav") 
+                you_tube_filename=os.path.join(youtube_folder,clip_basename+".mp4")
                 
                 #Make 3 minute audioclip
                 two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
                 wavfile.write(audio_filename, fs_tdb, two_days_before_wav)
 
-                eclipse_image_file=get_eclipse_images(ESID, eclipse_type=eclipse_type, user_images=user_images)
+                
+                eclipse_image_file, Photo_Credit, Photo_Description=get_eclipse_images(ESID, 
+                                                                                       eclipse_type=eclipse_type, 
+                                                                                       user_images=user_images, 
+                                                                                       verbose=verbose)
+
                 
                 escsp_mk_video_clip(audio_filename=audio_filename, eclipse_image_file=eclipse_image_file,
                         video_filename=you_tube_filename,verbose=verbose)
+                Recording_Date=eclipse_time_trio["two_days_before_start_time"].strftime('%Y-%m-%d')
+                Recording_Start_Time=eclipse_time_trio["two_days_before_start_time"].strftime('%H:%M')+ " UTC"
+                Recording_type=eclipse_info["Eclipse_type"] + "Eclipse, two days before the eclipse."
+                
+                description=escsp_mk_youtube_description(eclipse_info, Recording_Date,Recording_Start_Time,
+                                 Recording_type, Photo_Credit,Photo_Description)
+                escsp_mk_youtube_csv(you_tube_filename, clip_title, description, clip_basename, eclipse_info, youtube_folder)
 
 
             if one_day_before_files: 
                 eclipse_type="Non-Eclipse-Day"
-                clip_title="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_one_day_before_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_one_day_before_3minute"
+                clip_title=clip_basename.replace('_', ' ')
+                if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
                 
-                audio_filename=os.path.join(youtube_folder,clip_title+".wav") 
-                you_tube_filename=os.path.join(youtube_folder,clip_title+".mp4")
+                audio_filename=os.path.join(youtube_folder,clip_basename+".wav") 
+                you_tube_filename=os.path.join(youtube_folder,clip_basename+".mp4")
 
                 #Make 3 minute audioclip
                 one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files)                
                 wavfile.write(audio_filename, fs_odb, one_day_before_wav)
 
-                eclipse_image_file=get_eclipse_images(ESID, eclipse_type=eclipse_type, user_images=user_images)
+                eclipse_image_file, Photo_Credit, Photo_Description=get_eclipse_images(ESID, 
+                                                                                       eclipse_type=eclipse_type, 
+                                                                                       user_images=user_images, 
+                                                                                       verbose=verbose)
+
+                
                 escsp_mk_video_clip(audio_filename=audio_filename, eclipse_image_file=eclipse_image_file,
                         video_filename=you_tube_filename,verbose=verbose)
-
+                Recording_Date=eclipse_time_trio["one_day_before_start_time"].strftime('%Y-%m-%d')
+                Recording_Start_Time=eclipse_time_trio["one_day_before_start_time"].strftime('%H:%M')+ " UTC"
+                Recording_type=eclipse_info["Eclipse_type"] + "Eclipse, one day before the eclipse."
+                
+                description=escsp_mk_youtube_description(eclipse_info, Recording_Date,Recording_Start_Time,
+                                 Recording_type, Photo_Credit,Photo_Description)
+                escsp_mk_youtube_csv(you_tube_filename, clip_title, description, clip_basename, eclipse_info, youtube_folder)
+                
            
         else:
             print("Error. Folder: "+folder+" No Spreadsheet.")

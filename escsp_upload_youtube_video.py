@@ -2,6 +2,7 @@
 
 #escsp_upload_youtube_video.py
 #From https://github.com/davidrazmadzeExtra/YouTube_Python3_Upload_Video/tree/main
+#python3 escsp_upload_youtube_video.py --file="example.mov" --title="Summer vacation in California" --description="Had fun surfing in Santa Cruz" --keywords="surfing,Santa Cruz" --category="22" --privacyStatus="private"
 
 
 import httplib2
