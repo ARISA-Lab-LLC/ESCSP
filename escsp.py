@@ -449,14 +449,14 @@ def get_eclipse_images(ESID, eclipse_type=None, user_images=None, verbose=False)
                 Photo_Description=Photo_Description+"Annular solar eclipse over a hazy desert landscape, "
                 Photo_Description=Photo_Description+"with a bright ring of the sun visible around the moon. "
                 Photo_Description=Photo_Description+"The sky glows in a deep orange hue, enhancing the mystical appearance of the scene."
-"
+
             if eclipse_type == "Partial" : 
                 eclipse_image_file=eclipse_images[1]
                 Photo_Credit="Credit: Evan Zucker"
                 Photo_Description="Silhouette of wind turbines on the horizon during a sunset, "
                 Photo_Description=Photo_Description+"with a dramatic crescent solar eclipse visible in the background, "
                 Photo_Description=Photo_Description+"casting a warm orange glow in the sky."
-"
+
 
             if eclipse_type == "Non-Eclipse" or eclipse_type == "Non-Eclipse-Day" : 
                 eclipse_image_file=eclipse_images[2]
