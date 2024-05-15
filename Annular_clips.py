@@ -2,7 +2,7 @@
 from escsp import *
 
 ESIDS=['002','138', '169', '015', '022','081','111', '112','136'] 
-
+ESIDS=['002']
 top_dir="/media/tracy/Soundscape1/Annular_DATA/"
 
 analysis_folder=top_dir+"YouTube/"

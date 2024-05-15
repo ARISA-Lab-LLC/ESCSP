@@ -436,28 +436,34 @@ def get_eclipse_images(ESID, eclipse_type=None, user_images=None, verbose=False)
         eclipse_image_file=None
         Photo_Credit=None
         Photo_Description=None 
-        eclipse_images=[os.path.join(youtube_assets_folder,"Annular_Eclipse_YouTube_Image.jpg"),
-                            os.path.join(youtube_assets_folder,"Partial_Eclipse_YouTube_Image.jpg"),
-                            os.path.join(youtube_assets_folder,"Non-eclipse_days_YouTube_Image_Outdoor_Tree_Picture.jpg"),
-                            os.path.join(youtube_assets_folder,"Total_Eclipse_image_YouTube.jpg")]
+        eclipse_images=[os.path.join(youtube_assets_folder,"Annular_Eclipse_YouTube_Image.png"),
+                            os.path.join(youtube_assets_folder,"Partial_Eclipse_YouTube_Image.png"),
+                            os.path.join(youtube_assets_folder,"Non-eclipse_days_YouTube_Image_Outdoor_Tree_Picture.png"),
+                            os.path.join(youtube_assets_folder,"Total_Eclipse_image_YouTube..png")]
             
         if eclipse_type != None:
             if eclipse_type == "Annular" : 
                 eclipse_image_file=eclipse_images[0]
-                Photo_Credit="Shutterstock: Contributor Hyserb"
-                Photo_Description="Annular Solar Eclipse of the Sun in Hofuf, Saudi Arabia."
+                Photo_Credit="Shutterstock: Stock Photo ID: 1598297254, Contributor Hyserb"
+                Photo_Description="Annular Solar Eclipse of the Sun in Hofuf, Saudi Arabia.  "
+                Photo_Description=Photo_Description+"Annular solar eclipse over a hazy desert landscape, "
+                Photo_Description=Photo_Description+"with a bright ring of the sun visible around the moon. "
+                Photo_Description=Photo_Description+"The sky glows in a deep orange hue, enhancing the mystical appearance of the scene."
+"
             if eclipse_type == "Partial" : 
                 eclipse_image_file=eclipse_images[1]
-                Photo_Credit="Shutterstock"
-                Photo_Description=" Blank for now"
-            if eclipse_type == "Non-Eclipse" : 
+                Photo_Credit="Credit: Evan Zucker"
+                Photo_Description="Silhouette of wind turbines on the horizon during a sunset, "
+                Photo_Description=Photo_Description+"with a dramatic crescent solar eclipse visible in the background, "
+                Photo_Description=Photo_Description+"casting a warm orange glow in the sky."
+"
+
+            if eclipse_type == "Non-Eclipse" or eclipse_type == "Non-Eclipse-Day" : 
                 eclipse_image_file=eclipse_images[2]
                 Photo_Credit="Shutterstock"
-                Photo_Description="Blank for now"
-            if eclipse_type == "Non-Eclipse-Day" : 
-                eclipse_image_file=eclipse_images[2]
-                Photo_Credit="Shutterstock"
-                Photo_Description=" Blank for now"
+                Photo_Description="Green leaves covering the top of several trees, with "
+                Photo_Description=Photo_Description+"sunlight shining through and making spots of light on the ground below."
+
             if eclipse_type == "Total" : 
                 eclipse_image_file=eclipse_images[3]
                 Photo_Credit="Evan Zucker"
@@ -493,22 +499,6 @@ def escsp_mk_video_clip(audio_filename=None, eclipse_image_file=None,
          print("audio_filename: "+audio_filename)
          print("eclipse_image_file: "+eclipse_image_file)
          print("video_filename: "+video_filename)
-         
-    ffmpeg_call_temp=["ffmpeg -loop 1 -i ",
-                " -i ",
-                " -r 1 -c:v -vcodec libx264 -acodec aac -preset slow ",
-                "-tune stillimage -c:a copy -shortest "] 
-
-    #ffmpeg -loop 1 -i input_image.jpg -i input_audio.mp3 -r 1 -c:v libx264 -preset slow -tune stillimage -crf 18 -c:a copy -shortest -s 1280x720 output_video.mp4
-   
-    #ffmpeg_call=ffmpeg_call_temp[0]+eclipse_image_file
-    #ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[1]+audio_filename+ffmpeg_call_temp[2]
-    #ffmpeg_call=ffmpeg_call+ffmpeg_call_temp[3]
-    #ffmpeg_call=ffmpeg_call+video_filename
-
-    
-    #subprocess.call(ffmpeg_call, shell = True)    
-
 
     # Import the audio(Insert to location of your audio instead of audioClip.mp3)
     audio = AudioFileClip(audio_filename)
