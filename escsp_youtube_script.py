@@ -17,7 +17,8 @@ upload_csv_files=glob.glob(os.path.join(youtube_folder,"*_youtube.csv"))
 verbose=1
 ###########################################################################
 
-upload_csv_files=[upload_csv_files[1]]
+upload_csv_files.remove(upload_csv_files[0])
+upload_csv_files.remove(upload_csv_files[0])
 for upload_csv_file in upload_csv_files : 
 
     df=pd.read_csv(os.path.abspath(upload_csv_file), header=[0])

@@ -11,7 +11,7 @@ import scipy.io.wavfile as wavfile
 #file handling and misc.
 import os  
 import datetime
-#
+import pandas as pd
 import scipy
 import pandas as pd
 from natsort import natsorted
@@ -88,10 +88,31 @@ def get_wav_file_matching_datetime():
     matching_file_on_other_days=""
     return matching_file, matching_file_on_other_days
 
-def read_config():
-    """ """
+def read_am_config(config_file):
+    """ 
+    Read an AudioMoth CONFIG.TXT file.
     
-    return 
+    Parameters:
+    config_file: Path to an AudioMoth CONFIG.TXT file.
+    
+    Returns:
+    result_dict: A dictionary of key value pairs generated from the CONFIG.TXT file.
+
+    Example usage:
+    directory_path = 'your_directory_path'
+    all_files = list_files_in_directory(directory_path)
+    """
+
+    result_dict = {}
+    
+    with open(config_file, 'r') as file:
+        for line in file:
+            line = line.strip()  # Remove leading/trailing whitespace
+            if ':' in line:
+                key, value = line.split(':', 1)  # Split only on the first colon
+                result_dict.update({key.strip() : value.strip()})  # Remove leading/trailing whitespace from key and value
+    
+    return result_dict
 
 def get_am_serial_number_from_config(FILE):
 
@@ -195,7 +216,6 @@ def filename_2_datetime(files, type="AudioMoth", verbose=None):
                 
                     
         return date_times
-
 
 def get_files_between_times(files, start_time, end_time):
     """Return only the filepaths for the recording files that are between the start_time & the end_time"""
@@ -394,7 +414,6 @@ def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
     else:
         print("No file "+eclipse_data_csv+" found.")
 
-
 def escsp_mk_youtube_description(eclipse_info, Recording_Date,Recording_Start_Time,
                                  Recording_type, Photo_Credit,Photo_Description):
     if eclipse_info["FirstContactDate"] == "2023-10-14":
@@ -425,21 +444,16 @@ def escsp_mk_youtube_description(eclipse_info, Recording_Date,Recording_Start_Ti
     text=text+"Photo Description: " +Photo_Description+ "\n"
 
     return text
-
-
-
-    
-
     
 def get_eclipse_images(ESID, eclipse_type=None, user_images=None, verbose=False):
         if verbose: print("eclipse_type= "+eclipse_type)
         eclipse_image_file=None
         Photo_Credit=None
         Photo_Description=None 
-        eclipse_images=[os.path.join(youtube_assets_folder,"Annular_Eclipse_YouTube_Image.png"),
-                            os.path.join(youtube_assets_folder,"Partial_Eclipse_YouTube_Image.png"),
-                            os.path.join(youtube_assets_folder,"Non-eclipse_days_YouTube_Image_Outdoor_Tree_Picture.png"),
-                            os.path.join(youtube_assets_folder,"Total_Eclipse_image_YouTube..png")]
+        eclipse_images=[os.path.join(youtube_assets_folder,"Annular_Eclipse_YouTube_Image.jpg"),
+                            os.path.join(youtube_assets_folder,"Partial_Eclipse_YouTube_Image.jpg"),
+                            os.path.join(youtube_assets_folder,"Non-eclipse_days_YouTube_Image_Outdoor_Tree_Picture.jpg"),
+                            os.path.join(youtube_assets_folder,"Total_Eclipse_image_YouTube.jpg")]
             
         if eclipse_type != None:
             if eclipse_type == "Annular" : 
@@ -487,11 +501,6 @@ def escsp_mk_youtube_csv(you_tube_filename, clip_title, description, clip_basena
                   privacyStatus:[privacyStatus]}
     df=pd.DataFrame.from_dict(youtube_dict)
     df.to_csv(os.path.join(youtube_folder,clip_basename+"_youtube.csv"), index=False)
-    
-    
-    
-
-
 
 def escsp_mk_video_clip(audio_filename=None, eclipse_image_file=None,
                         video_filename=None,verbose=False):
@@ -652,6 +661,65 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
            
         else:
             print("Error. Folder: "+folder+" No Spreadsheet.")
+
+def escsp_replace_am_header(df):
+    """
+    Replace the header (column names) in a pandas DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): The DataFrame whose header is to be replaced.
+    new_header (list): A list containing the new column names.
+    
+    Returns:
+    pd.DataFrame: The DataFrame with the updated column names.
+    """
+    new_header = [(                 'AudioMoth ES ID Number', ...),
+            (                   'AudioMoth \nSerial #', ...),
+            (                         'Recepient Type', ...),
+            (                          'Annular\n2023', ...),
+            (                            'Total\n2024', ...),
+            (                         'Recipient Name', ...),
+            (                      'Recipient Address', ...),
+            (                                  'Email', ...),
+            (                                   'Sent', ...),
+            (                          'Data Received', ...),
+            (                    'Total to this group', ...),
+            (       'Data Expected \nAnnular Eclipse ', ...),
+            (                          'Internal Data', ...),
+            (                    'Unnamed: 13_level_0', ...),
+            (                    'Unnamed: 14_level_0', ...),
+            (                    'Unnamed: 15_level_0', ...),
+            (                    'Unnamed: 16_level_0', ...),
+            (                  'Complete / Incomplete', ...),
+            ('Required Data Collector Steps Complete?', ...),
+            (                                 'Mailer', ...),
+            (                    'Unnamed: 20_level_0', ...),
+            (                    'Unnamed: 21_level_0', ...),
+            (                    'Unnamed: 22_level_0', ...),
+            (                    'Unnamed: 23_level_0', ...),
+            (                          'Online Survey', ...),
+            (                    'Unnamed: 25_level_0', ...),
+            (   'What does this mean for the project?', ...),
+            (                               'Latitude', ...),
+            (                              'Longitude', ...),
+            (         'Start time\n(Recorded by user)', ...),
+            (                    'Unnamed: 30_level_0', ...),
+            (                    'Unnamed: 31_level_0', ...),
+            (                    'Unnamed: 32_level_0', ...),
+            (                    'Unnamed: 33_level_0', ...)], 
+
+    if not isinstance(df, pd.DataFrame):
+        raise ValueError("Input df must be a pandas DataFrame")
+    
+    if not isinstance(new_header, list):
+        raise ValueError("Input new_header must be a list")
+    
+    if len(new_header) != len(df.columns):
+        raise ValueError("Length of new_header must match the number of columns in the DataFrame")
+    
+    df.columns = new_header
+    return df
+
 
 
         

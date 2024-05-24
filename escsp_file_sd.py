@@ -12,7 +12,8 @@ audiomoth_spreadsheet=""
 config_name="CONFIG.TXT"
 ############################################
 
-#Returns a Pandas dataframe
+#Reads the master audiomoth spreadsheet, in csv format
+# and returns a Pandas dataframe
 audiomoth_info=escsp_read_audiomoth_csv(audiomoth_spreadsheet)
 
 drives=glob.glob(drive_path)
@@ -36,7 +37,7 @@ if sd_name != "":
     ams_row=audiomoth_info.audiomoth_info(filter)
     if math.isnan(ams_row["ESID"]):error_conditions["Serial Number not found"]=1
     else:
-       if length()ESID=
+       
 
 
 else:
