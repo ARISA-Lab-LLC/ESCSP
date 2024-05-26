@@ -1,28 +1,25 @@
+#read_audiomoth_master_spreadsheet.py
 import csv
 import pandas as pd
 import numpy as np 
 import os 
 from escsp import *
 
-Volume="/media/tracy/Soundscape1/"
-#Volume="/Volumes/Soundscape1/""
+#Get system environmental variables that may change from system to system
+#Volume=os.getenv(ESCSP_Volume)
+AM_spreadsheet_in=os.getenv("AM_spreadsheet")
+AM_spreadsheet_out=os.getenv("out_spreadsheet")
+esid_spreadsheet=os.getenv("esid_spreadsheet")
+out2_spreadsheet=os.getenv("esid_spreadsheet")
 
-AM_spreadsheet=Volume + "/Annular_DATA/AudioMoth_ES_ID.csv"
-out_spreadsheet=Volume + "/Annular_DATA/lat_longs.csv"
-esid_spreadsheet=Volume +"/Annular_DATA/analysis_esids.csv" 
-#with open(AM_spreadsheet, mode ='r') as file:    
-#       csvFile = csv.DictReader(file)
-#       for row in csvFile:
-#            print(lines)
-
-lat_long_out=open(out_spreadsheet, "w")
+lat_long_out=open(out2_spreadsheet, "w")
 esid_out=open(esid_spreadsheet, "w")
 
-data_frame=pd.read_csv(AM_spreadsheet, header=None)
+data_frame=pd.read_csv(AM_spreadsheet_in, header=None)
 #Remove the first three rows of the dataframe which was the old header
 data_frame=data_frame.iloc[3:]
-#Create the new header
 
+#Create the new header
 new_header = ['AudioMoth ES ID Number',
               "AudioMoth Serial #",
               "Recepient Type",
@@ -32,6 +29,7 @@ new_header = ['AudioMoth ES ID Number',
               "Recipient Address",
               "Sign-up Email",
               "MicroSD Card Received",
+              "How many people completed every step of the role?",
               "Incomplete",
               "Complete / Incomplete",
               "Required Data Collector Steps Complete?",
@@ -40,13 +38,14 @@ new_header = ['AudioMoth ES ID Number',
               "Data Card Included (Mailer)",
               "AudioMoth Returned (Mailer)",
               "User Notes",
-              "Survey Completed",
+              "Online Survey Completed",
               "Location Latitude & Longitude Entered (Survey)",
               "Location Start & Stop Time Entered (Survey)",
+              "What does this mean for the project?",
               "Latitude",
               "Longitude",
-              "Start date (Recorded by user)",
-              "Start time (Recorded by user)",
+              "Start date Recorded by user",
+              "Start time Recorded by user",
               "Time Zone",
               "Uploaded to RFCx Arbimon",
               "AudioMoth Time Stamp Set  0 = No, 1 = yes",
@@ -58,39 +57,53 @@ new_header = ['AudioMoth ES ID Number',
               "Eclipse Percent",
               "Total Eclipse Start UTC", 
               "Total Eclipse End UTC",
-              "Max Eclipse Time UTC", ]
-for col in data_frame.columns:
-    print(col)
+              "Max Eclipse Time UTC", 
+              "Upload Round"
+              ]
 
 if len(new_header) != len(data_frame.columns):
         print("Length of new_header= "+str(len(new_header)))
         print("Length of data_frame.columns= "+str(len(data_frame.columns)))
         raise ValueError("Length of new_header must match the number of columns in the DataFrame")
+else:   
+    data_frame.columns = new_header
     
+#Sanitize the spreadsheet of PII
+# Identify columns to remove
+data_frame.drop(columns=["Recepient Type", 
+                         "Recipient Name", 
+                         "Recipient Name",
+                         "Recipient Address",
+                         "Sign-up Email",
+                         "Recepient Type"],
+                         inplace=True)
 
 ESID=data_frame['AudioMoth ES ID Number'].values.tolist()
 lats=data_frame['Latitude'].values.tolist()
 longs=data_frame['Longitude'].values.tolist()
-times=data_frame['Start time\n(Recorded by user)'].values.tolist()
-
-esid_out.write("ESID")
+dates=data_frame["Start date Recorded by user"].values.tolist()
+times=data_frame['Start time Recorded by user'].values.tolist()
 
 print_index=0
+indices_to_remove = data_frame[data_frame['AudioMoth ES ID Number'] == np.nan].index
+print("indices_to_remove= " +str(len(indices_to_remove)))
+data_frame = data_frame.drop(indices_to_remove)
+indices_to_remove = data_frame[data_frame['AudioMoth ES ID Number'] == "TOTAL"].index
+print("indices_to_remove= " +str(len(indices_to_remove)))
+data_frame = data_frame.drop(indices_to_remove)
+
 for index, row in data_frame.iterrows():
-    if str(lats[index][0]) !=  'nan' and str(longs[index][0]) != 'nan':
-        print(str(int(ESID[index][0]))+","+str(lats[index][0])+","+str(longs[index][0])+","+str(times[index][0]))
-        if print_index !=0: 
-            lat_long_out.write("\n")
-            
-        lat_long_out.write(str(lats[index][0])+","+str(longs[index][0]))
-        esid_out.write("\n")
-        esid_out.write(str(int(ESID[index][0])))
-        print_index+=1
-    #print(data_frame.iloc[data_frame.index[index]].at['Latitude']
-    #      + data_frame.iloc[data_frame.index[index]].at['Longitude']
-    #      + data_frame.iloc[data_frame.index[index]].at['Start time\n(Recorded by user)'])
-    #print("")
-    #print("")
+    print(row['AudioMoth ES ID Number'])
+    print(type(row['AudioMoth ES ID Number']))
+    if type(row['AudioMoth ES ID Number']) != type(1.0): 
+          if row['AudioMoth ES ID Number'] != "TOTAL":
+            print(row['AudioMoth ES ID Number'])
+            print(type(row['AudioMoth ES ID Number']))
+            print(row['AudioMoth Serial #'])
+            print(type(row['AudioMoth Serial #']))
+
+data_frame.to_csv(AM_spreadsheet_out)
+
 esid_out.close()
 lat_long_out.close()
 #file.close()
