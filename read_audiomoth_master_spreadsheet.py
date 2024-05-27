@@ -1,5 +1,4 @@
 #read_audiomoth_master_spreadsheet.py
-import csv
 import pandas as pd
 import numpy as np 
 import os 
@@ -7,15 +6,12 @@ from escsp import *
 
 #Get system environmental variables that may change from system to system
 #Volume=os.getenv(ESCSP_Volume)
-AM_spreadsheet_in=os.getenv("AM_spreadsheet")
+AM_spreadsheet_in=os.getenv("total_AM_spreadsheet")
 AM_spreadsheet_out=os.getenv("out_spreadsheet")
 esid_spreadsheet=os.getenv("esid_spreadsheet")
-out2_spreadsheet=os.getenv("esid_spreadsheet")
+out2_spreadsheet=os.getenv("total_redacted_AM_spreadsheet")
+data_frame=pd.read_csv(AM_spreadsheet_in, header=[0])
 
-lat_long_out=open(out2_spreadsheet, "w")
-esid_out=open(esid_spreadsheet, "w")
-
-data_frame=pd.read_csv(AM_spreadsheet_in, header=None)
 #Remove the first three rows of the dataframe which was the old header
 data_frame=data_frame.iloc[3:]
 
@@ -104,6 +100,6 @@ for index, row in data_frame.iterrows():
 
 data_frame.to_csv(AM_spreadsheet_out)
 
-esid_out.close()
-lat_long_out.close()
+#esid_out.close()
+#lat_long_out.close()
 #file.close()

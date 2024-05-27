@@ -720,6 +720,25 @@ def escsp_replace_am_header(df):
     df.columns = new_header
     return df
 
+def escsp_sn2esid(file_path, AM_df):
+    """
+    Find the ESID number of the AudioMoth with the Serial Number contained with in a CONFIG.TXT file.
+    
+    Parameters:
+    file_path (string): Full path to the CONFIG.TXT file.
+    AM_df (pd.DataFrame): A data frame with the serialn # and ESID information.
+    
+    Returns:
+    ESID (string): A string of the ESID number associated with the Serial Number contained in the CONFIG.TXT file
+    """
+    if os.path.exists(file_path):
+       config_info_list=read_am_config(file_path)
+       row=AM_df.loc[AM_df['AudioMoth Serial #'] == config_info_list["Device ID"] ]
+       return str(row["AudioMoth ES ID Number"].values[0])
+
+    else:
+       raise ValueError("No CONFIG.TXT file named "+file_path)
+
 
 
         
