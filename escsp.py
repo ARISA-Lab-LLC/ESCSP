@@ -734,10 +734,15 @@ def escsp_sn2esid(file_path, AM_df):
     if os.path.exists(file_path):
        config_info_list=read_am_config(file_path)
        row=AM_df.loc[AM_df['AudioMoth Serial #'] == config_info_list["Device ID"] ]
-       return str(row["AudioMoth ES ID Number"].values[0])
+       if len(row) > 0. :
+           return str(row["AudioMoth ES ID Number"].values[0])
+       else:
+           print("Serial Number "+config_info_list["Device ID"]+" is not in the AudioMoth database.")
+           return False
 
     else:
-       raise ValueError("No CONFIG.TXT file named "+file_path)
+           print("No CONFIG.TXT file found")
+           return False
 
 
 
