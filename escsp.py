@@ -13,8 +13,6 @@ import wave
 import os  
 import datetime
 import pandas as pd
-import scipy
-import pandas as pd
 from natsort import natsorted
 import glob
 import numpy as np 
@@ -216,24 +214,24 @@ def escsp_get_eclipse_time_trio(eclipse_info, verbose=None):
     
     return eclipse_time_trio
     
-def filename_2_datetime(files, type="AudioMoth", verbose=None):
+def filename_2_datetime(files, type="AudioMoth", verbose=False):
     """ Return a list if datetimes that correspond to the  """
-    if verbose != None: print("Here 1")
+    if verbose : print("Here 1")
     date_times=None
     if len(files) >=1:
         date_times=[]
         for file in [files]:
             #Get the filename
-            if verbose != None: print('file= '+file)
+            if verbose : print('file= '+file)
             filename=(os.path.basename(file).split(".")[0])
-            if verbose != None: print('filename= '+filename)
+            if verbose : print('filename= '+filename)
 
             if type == "NPS": date_times=None
 
             if type == "AudioMoth":
                 date_string, time_string=filename.split("_")
-                if verbose != None: print('date_string= '+date_string)
-                if verbose != None: print('time_string= '+time_string)
+                if verbose : print('date_string= '+date_string)
+                if verbose : print('time_string= '+time_string)
 
                 #start_date=datetime.date(int(date_string[0:4]),int(date_string[4:6]), int(date_string[6:8]))
                 #start_time=datetime.time(int(time_string[0:2]),int(time_string[2:4]),int(time_string[4:6]))
@@ -876,6 +874,162 @@ def datetime_2_filename(datetimeObj, AudioMoth=True):
     
     filename_out=datetimeObj.strftime(time_format)+".WAV"
     return filename_out      
+
+def Reports_1(folder, TOTAL=True, verbose=False):
+
+
+    # Define the column headings
+    if TOTAL:
+        columns = [
+            "ESID #", 
+             "GB of data", 
+             "AM Timestamp Set",
+             "Three Days of Data Recorded? (Two days before and Eclipse Day 0 = No, 1 = yes)",
+             "April 6, 2024 Data 0 = No, 1 = yes",
+             "April 7, 2024 Data 0 = No, 1 = yes",
+             "April 8, 2024 Data 0 = No, 1 = yes", 
+             "April 9, 2024 Data 0 = No, 1 = yes",
+             "April 10, 2024 Data 0 = No, 1 = yes", 
+             "April 11, 2024 Data 0 = No, 1 = yes"
+             ]
         
+        dates=[
+             "2024, 4, 6, 0", "2024, 4, 6, 23",
+             "2024, 4, 7, 0", "2024, 4, 7, 23",
+             "2024, 4, 8, 0", "2024, 4, 8, 23",
+             "2024, 4, 9, 0", "2024, 4, 9, 23",
+             "2024, 4, 10, 0", "2024, 4, 10, 23",
+             "2024, 4, 11, 0", "2024, 4, 11, 23"
+             ]
+    else:          
+        columns = [
+            "ESID #", 
+             "GB of data", 
+             "AM Timestamp Set",
+             "Three Days of Data Recorded? (Two days before and Eclipse Day 0 = No, 1 = yes)",
+             "October 12, 2023 Data 0 = No, 1 = yes",
+             "October 13, 2023 Data 0 = No, 1 = yes",
+             "October 14, 2023 Data 0 = No, 1 = yes", 
+             "October 15, 2023 Data 0 = No, 1 = yes",
+             "October 16, 2023 Data 0 = No, 1 = yes", 
+             "October 17, 2023 Data 0 = No, 1 = yes"
+             ]
+        
+        dates=[
+             "2023, 10, 12, 0", "2023, 10, 12, 23",
+             "2023, 10, 13, 0", "2023, 10, 13, 23",
+             "2023, 10, 14, 0", "2023, 10, 14, 23",
+             "2023, 10, 15, 0", "2023, 10, 15, 23",
+             "2023, 10, 16, 0", "2023, 10, 16, 23",
+             "2023, 10, 17, 0", "2023, 10, 17, 23"
+             ]
+
+    #Get ESID #
+    site_values={columns[0] : filename_2_ESID(folder)}
+
+    #Get size of data in the folder in GB 
+    site_values[columns[1]]=str(get_folder_size_in_gb(folder))
+
+
+    if AM_timestamp_set(folder) == True:
+         site_values[columns[2]]=1
+    else:
+         site_values[columns[2]]=0
+
+    if times_between_dates(folder, dates[0], dates[1]):
+         site_values[columns[3]]=1
+    else:
+         site_values[columns[3]]=0
+
+    if times_between_dates(folder, dates[2], dates[3]):
+         site_values[columns[4]]=1
+    else:
+         site_values[columns[4]]=0
+
+    if times_between_dates(folder, dates[4], dates[5]):
+         site_values[columns[5]]=1
+    else:
+         site_values[columns[5]]=0
+
+    if times_between_dates(folder, dates[6], dates[7]):
+         site_values[columns[6]]=1
+    else:
+         site_values[columns[6]]=0
+
+    if times_between_dates(folder, dates[8], dates[9]):
+         site_values[columns[7]]=1
+    else:
+         site_values[columns[7]]=0
+
+    if times_between_dates(folder, dates[10], dates[11]):
+         site_values[columns[8]]=1
+    else:
+         site_values[columns[8]]=0
+
+
+    df=pd.DataFrame.from_dict(site_values)
+
+    # Define the output CSV file path
+    output_file_path = os.path.join(folder,'Report_1.csv')
+
+    # Save the DataFrame to a CSV file
+    df.to_csv(output_file_path, index=False)
+
+    if verbose: print(f"DataFrame saved to {output_file_path}")    
     
+def AM_timestamp_set(folder):
+    file_list = os.listdir(folder)
     
+    file_list.remove("CONFIG.TXT")
+    for count, file in enumerate(file_list):
+        if os.path.isdir(file): file_list.pop(count)
+    else:
+        ext=os.path.basename(file).split(".")
+        if ext.lower() != "wav": file_list.pop(count)
+
+    datetime_list=filename_2_datetime(file_list)
+    start_datetime=datetime.datetime(2023, 10, 1, 0, 0, 0)
+    end_datetime=datetime.datetime(2024, 4, 11, 0, 0, 0)
+    am_time_set=any(start_datetime <= dt <= end_datetime for dt in datetime_list)
+
+    return am_time_set
+
+def times_between_dates(folder, start, end):
+    file_list = os.listdir(folder)
+    file_list.remove("CONFIG.TXT")
+
+    for count, file in enumerate(file_list):
+        if os.path.isdir(file): file_list.pop(count)
+    else:
+        ext=os.path.basename(file).split(".")
+        if ext.lower() != "wav": file_list.pop(count)
+        
+
+    datetime_list=filename_2_datetime(file_list)
+    start_datetime=datetime.datetime(start)
+    end_datetime=datetime.datetime(end)
+    am_time_set=any(start_datetime <= dt <= end_datetime for dt in datetime_list)
+
+    return am_time_set
+
+def get_folder_size_in_gb(folder_path):
+    """
+    Calculate the total size of a folder in gigabytes.
+    
+    Parameters:
+    folder_path (str): The path to the folder.
+    
+    Returns:
+    float: The size of the folder in gigabytes.
+    """
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(folder_path):
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            # Skip if it's a broken symlink
+            if not os.path.islink(file_path) and os.path.exists(file_path):
+                total_size += os.path.getsize(file_path)
+    
+    # Convert bytes to gigabytes
+    total_size_gb = total_size / (1024 ** 3)
+    return total_size_gb
