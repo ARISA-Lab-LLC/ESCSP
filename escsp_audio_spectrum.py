@@ -16,8 +16,11 @@ import glob
 import datetime
 ###########################################################################
 #Define Global Variables
+color_map="jet"#"inferno"
+color_map="Greys"#"inferno"
 #Path to data folder
 data_folder="/Users/trae/Dropbox/programs/ESCSP_Data/"
+#data_folder="/Volumes/Austrian/programs/ESCSP_Data/"
 frames_folder=os.path.join(data_folder,"frames/")
 movie_folder=os.path.join(data_folder,"movies/")
 raw_data_folder=os.path.join(data_folder,"raw_data/")
@@ -50,12 +53,15 @@ frames_per_second=12
 #audio_filename="Crickets-cicadas-and-grasshoppers_first_30.wav"
 #audio_filename="CONGE03903_20170820_160856.wav"
 #audio_filename="FODO_eclipse.wav"
-audio_filename="FODOE10882_20170821_160857.wav"
+#audio_filename="FODOE10882_20170821_160857.wav"
 #movie_name="Eclipse test"
 #movie_name="BisonYELL"
 #movie_name="Elk_Test"
 #Number of frames/sec
 frames_per_second=3
+audio_filename="crickets_filtered2.wav"
+audio_filename="Crickets-cicadas-and-grasshoppers_first_30.wav"
+audio_filename="Mountain_Audio_Cicadas_30second.wav"
 if verbose:
     print(audio_filename)
     print(frames_per_second)
@@ -65,9 +71,10 @@ if verbose:
 #    end_seconds=total_eclipse_start_delta+0.
 #    n_sec=int(end_seconds-start_seconds)
 #    print("New file length: "+str(n_sec)+' seconds')
-start_seconds=8225
+start_seconds=0
 #end_seconds=start_seconds+n_sec
-end_seconds=8509
+end_seconds=30
+no_equalizer=1
 n_sec=end_seconds-start_seconds
 audio_files=[os.path.join(raw_data_folder,audio_filename)]
 
@@ -135,11 +142,14 @@ for audio_file in audio_files:
 ###########################################################################
 
     index=0
-
+    if no_equalizer ==False:
 # Postion of plot one, the equalizer [left, bottom, width, height]
-    ax1_position=[0.15, 0.79, 0.67, 0.16]
+        ax1_position=[0.15, 0.79, 0.67, 0.16]
 # Postion of plot two, the spectrogram [left, bottom, width, height]
-    ax2_position=[0.15, 0.1, 0.85, 0.51]
+        ax2_position=[0.15, 0.1, 0.85, 0.51]
+    else:
+        ax1_position=[0, 0, 0, 0] 
+        ax2_position=[0.15, .15, .85, .80]
     
     if verbose: 
         print("Recording time: ",str(recording_time))
@@ -154,33 +164,39 @@ for audio_file in audio_files:
             
             line_xs=[iter_1+(iter_2/frames_per_second),iter_1+(iter_2/frames_per_second)]
             line_ys=[min(frequenciesFound),max(frequenciesFound)]
-        
+            
             fig1 = plt.figure()
             #plt.style.use('Solarize_Light2')
-            plt.style.use('dark_background')
-            ax = fig1.add_axes(ax1_position)
+            plt.style.use('dark_background')# [left, bottom, width, height]
         
-            #plt.subplot(2, 1, 1)
-            #plt.axes([0., 0.3, 0.3, 0.3])    # [left, bottom, width, height]
-            #ax = plt.gca()
-            #ax.axes.xaxis.set_ticklabels([])
-            #ax.set_ylim([np.min(powerSpectrum[:,index]), np.max(powerSpectrum[:,index])])
+        #Plot the equalizer at the top.
+            if no_equalizer ==False:
+                ax = fig1.add_axes(ax1_position)# [left, bottom, width, height]
         
-            #plt.yscale("log")  
-            #ax.set_yticklabels([])
-            #ax.set_xticklabels([])
+                #plt.subplot(2, 1, 1)
+                #plt.axes([0., 0.3, 0.3, 0.3])    # [left, bottom, width, height]
+                #ax = plt.gca()
+                #ax.axes.xaxis.set_ticklabels([])
+                #ax.set_ylim([np.min(powerSpectrum[:,index]), np.max(powerSpectrum[:,index])])
         
-            ax.set_yticks([])
+                #plt.yscale("log")  
+                #ax.set_yticklabels([])
+                #ax.set_xticklabels([])
+        
+                ax.set_yticks([])
 
-            ax.set_xlabel('Frequency')
-            ax.set_ylabel('Volume')
-            ax.plot(frequenciesFound,powerSpectrum[:,index],color="#ff9300")
-            ax.plot(frequenciesFound,-1.0*powerSpectrum[:,index],color="#ff9300")
-            ax.fill_between(frequenciesFound,powerSpectrum[:,index],-1.0*powerSpectrum[:,index],color="#ff9300")
+                ax.set_xlabel('Frequency')
+                ax.set_ylabel('Volume')
+                ax.plot(frequenciesFound,powerSpectrum[:,index],color="#ff9300")
+                ax.plot(frequenciesFound,-1.0*powerSpectrum[:,index],color="#ff9300")
+                ax.fill_between(frequenciesFound,powerSpectrum[:,index],-1.0*powerSpectrum[:,index],color="#ff9300")
         
+
             ax2 = fig1.add_axes(ax2_position)# [left, bottom, width, height]
+
+
             powerSpectrum, frequenciesFound, time, imageAxis = ax2.specgram(trimmed_audio, Fs=Fs_original,
-            xextent=[0,n_sec], mode="magnitude", scale="dB", cmap="inferno", scale_by_freq=False) 
+            xextent=[0,n_sec], mode="magnitude", scale="dB", cmap=color_map, scale_by_freq=False) 
 
 #Plot time bar overlay        
             line_x_position=iter_1+(iter_2/frames_per_second)
@@ -189,12 +205,12 @@ for audio_file in audio_files:
 
        
             ax2.set_xlabel('Time (Seconds)')
-            ax2.set_ylabel('Frequency')
+            ax2.set_ylabel('Frequency (Hertz)')
         
             ax2.plot(line_xs,line_ys,'k')
         
             ax2.set_title('Spectrogram')
-            plt.colorbar(imageAxis,label="Volume dB")
+            plt.colorbar(imageAxis,label="Volume (decibels)")
             frame_name="image_"+str(index).zfill(5)+".png"
                 
             plt.savefig(os.path.join(frames_folder,frame_name))
@@ -223,8 +239,10 @@ for audio_file in audio_files:
     process=subprocess.run(ffmpeg_call,shell=True)   
 
     #Add the clipped audio file to the movie file
-    ffmpeg_call2="/usr/local/bin/./ffmpeg -i "+movie_name1+" -i "+audio_file_out+" -c:v copy -c:a aac "+movie_name2
-    
+    #ffmpeg_call2="/usr/local/bin/./ffmpeg -i "+movie_name1+" -i "+audio_file_out+" -c:v copy -c:a aac "+movie_name2
+    ffmpeg_call2="/usr/local/bin/./ffmpeg -i "+movie_name1+" -i "+audio_file+" -c:v copy -c:a aac "+movie_name2
+
+    audio_file
     process=subprocess.run(ffmpeg_call2,shell=True) 
 
     if os.path.isfile(movie_name2):

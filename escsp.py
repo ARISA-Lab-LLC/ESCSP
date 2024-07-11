@@ -8,6 +8,7 @@ import numpy as np
 # for visualizing the data 
 # for opening the media file 
 import scipy.io.wavfile as wavfile
+import wave
 #file handling and misc.
 import os  
 import datetime
@@ -32,8 +33,47 @@ user_images=None
 youtube_assets_folder="./YouTube_Assets/"
 privacyStatus="private"
 #privacyStatus="public"
+
+AM_Spreadsheet=os.getenv("total_redacted_AM_spreadsheet")
 ###########################################################################
 
+def mk_eclipse_data_csv(folder):
+    if os.path.isdir(folder):
+         AM_df=pd.read_csv(AM_Spreadsheet)
+         ESID=filename_2_ESID(folder)
+         row = AM_df[AM_df['AudioMoth ES ID Number'] == ESID]
+         eclipse_data=row[['AudioMoth ES ID Number', 
+                           "Latitude",
+                           "Longitude",
+                           "Eclipse Type",
+                           "Total Eclipse Start UTC", 
+                           "Total Eclipse End UTC",
+                           "Max Eclipse Time UTC", 
+              "Upload Round",
+              "Unusable Data 1 = Unusable",
+              "Manually Add ES ID# to Raw Data Upload 1 = Need to Do",
+              "Audio Data YouTube Link", 
+              "Not filtered (All frequencies), 4/6/2024 PSD",
+              "Not filtered (All frequencies), 4/7/2024 PSD",
+              "Not filtered (All frequencies), Average PSD of 4/6 & 4/7",
+              "Not filtered (All frequencies), 4/8/2024 PSD",
+              "Not filtered (All frequencies), Standard Deviation (Average vs Eclipse)",
+              "Filtered (Cricket frequency), 4/6/2024 PSD",
+              "Filtered (Cricket frequency), 4/7/2024 PSD",
+              "Filtered (Cricket frequency), Average PSD of 4/6 & 4/7",
+              "Filtered (Cricket frequency), eclipse 4/8/2024 PSD",
+              "Filtered (Cricket frequency), Standard Deviation (Average vs Eclipse)"
+                           
+                           ]].copy()
+
+
+
+         
+         
+    else: 
+         print("mk_eclipse_data_csv")
+         print(folder+" is not a folder")
+     
 def get_audio_start_info(files, type="AudioMoth", verbose=None):
     """ Return recording start information for a wave file based on the filename. 
     Start time and date returned using datetime format.
@@ -113,10 +153,6 @@ def read_am_config(config_file):
                 result_dict.update({key.strip() : value.strip()})  # Remove leading/trailing whitespace from key and value
     
     return result_dict
-
-def get_am_serial_number_from_config(FILE):
-
-    return serial_number
 
 def read_escsp_setup():
     """read the escsp_setup.cdat csv file that sets filepaths"""
@@ -279,6 +315,7 @@ def adjust_am_datetime(files, start_time, move=False, verbose=False):
     #print(delta_times)
 
     return delta_times #updated_file_names
+
 def get_es_folder_list(top_level, verbose=False, split = False):
     """ Program to get all of the ES sub-folders from a top level directory."""
     subfolders = [ f.path for f in os.scandir(top_level) if f.is_dir() ]
@@ -308,7 +345,7 @@ def filename_2_ESID(file):
                 esid=segment[5:8]
         #f=f[len(f)-2]
         
-
+    if esid+"A" in f: esid=esid+"A"
     if not  os.path.isdir(file) and not os.path.isfile(file):
         print('error in filename_2_ESID')
         print('error in: '+file)
@@ -317,31 +354,36 @@ def filename_2_ESID(file):
 
     return esid
 
-def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
+def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", verbose=False):
     if verbose: print(folder)
     ESID=filename_2_ESID(folder)
-    if verbose: print(ESID)
+    if verbose: print("ESID #=" + ESID)
     plot_1_name=os.path.join(folder, "PSD_plot_"+ESID+".png")
+    if verbose: print("plot_1_name= "+plot_1_name)
     plot_1a_name=os.path.join(plots_folder, "PSD_plot_"+ESID+".png")
     eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
-
     if os.path.isfile(eclipse_data_csv) :
         df=pd.read_csv(eclipse_data_csv, header=[0])
         time_format="%Y-%m-%d %H:%M:%S"
         if verbose: print("success! " + eclipse_data_csv) 
         if eclipse_type == "Annular" or eclipse_type == "Total":
 #set the eclipse start time
-            second_contact=str(df.iloc[5, 1])+ " " + str(df.iloc[7, 1])
+            chars_to_remove=["\"", "\'", "[", "]"]
+            second_contact=str(df["FirstContactDate"].values[0]+" "+df["SecondContactTimeUTC"].values[0])
+            for char_to_remove in chars_to_remove:
+                second_contact.replace(char_to_remove, '')
             print(second_contact)
         #eclipse_start_time = datetime.datetime(2023, 10, 14, 17, 34) 
             eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
 #set the eclipse end time
         #eclipse_end_time = datetime.datetime(2023, 10, 14, 17, 39)
-            third_contact = str(df.iloc[5, 1])+ " " + str(df.iloc[8, 1])
+            third_contact = str(df["FirstContactDate"].values[0]+" "+df["ThirdContactTimeUTC"].values[0])
+            for char_to_remove in chars_to_remove:
+                third_contact.replace(char_to_remove, '')
             eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
         else:
             max_eclipse=datetime.datetime.strptime(
-                str(df.iloc[5, 1])+ " " + str(df.iloc[10, 1]), time_format) 
+                df["FirstContactDate"].values[0]+ " " + df["TotalEclipseTimeUTC"].values[0], time_format)
             eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
             eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
 
@@ -373,7 +415,7 @@ def escsp_get_psd(folder, plots_folder, filelist=None, verbose=False):
                 list_file=os.path.join(folder, ESID+'_Analysis_Files.csv')
             
             if eclipse_files:
-                df=pd.DataFrame({'Eclipse Files': eclipse_files}) 
+                df_=pd.DataFrame({'Eclipse Files': eclipse_files}) 
                 if two_days_before_files:
                     df.insert(1, 'Two Days Before Files', two_days_before_files, True)
                 else: df=pd.DataFrame({'Two Days Before Files': ["None"]}) 
@@ -744,9 +786,96 @@ def escsp_sn2esid(file_path, AM_df):
            print("No CONFIG.TXT file found")
            return False
 
-
-
-        
+def split_wave_files(indir, outdir, duration=60, verbose=False):
+    """
+    Split a large WAV file into segments and update the metadata.
     
+    Parameters:
+    indir (str): Path to the folder containing input WAV file.
+    outdir (str): Directory to save the output segments.
+    duration (int): Length of each segment in seconds (default is 60 seconds).
+    """
+    error_log=[]
+    input_files=glob.glob(os.path.join(indir,"*."+"WAV"))
+    input_files=natsorted(input_files)
+    if verbose: print("Number of files to split= "+str(len(input_files)))   
+    for input_file in input_files:
+        if verbose: print("Working on file: "+input_file)
+        file_size = os.path.getsize(input_file)
+        
+        if file_size > 1024:
+            try:
+                # Read the input WAV file
+                sample_rate, data = wavfile.read(input_file)
+    
+                # Calculate the number of samples per segment
+                samples_per_segment = duration * sample_rate
+    
+                # Create the output directory if it doesn't exist
+                if not os.path.exists(outdir):
+                    os.makedirs(outdir)
+    
+                # Open the original WAV file to read metadata
+                with wave.open(input_file, 'rb') as wave_file:
+                    params = wave_file.getparams()
+    
+                # Split the data into segments
+                total_samples = len(data)
+                num_segments = total_samples // samples_per_segment
+
+                next_time=filename_2_datetime(os.path.basename(input_file), type="AudioMoth")[0]
+                print(type(next_time))
+                if type(next_time) == "list":
+                    if verbose: print(type(next_time))
+                    next_time=next_time[0]
+                    if verbose: print(type(next_time))
+    
+                for i in range(num_segments + 1):
+
+                    start_sample = i * samples_per_segment
+                    end_sample = start_sample + samples_per_segment
+        
+                    if end_sample > total_samples:
+                                                                                                                            end_sample = total_samples
+        
+                    segment_data = data[start_sample:end_sample]
+        
+                    # Write the segment to a new WAV file
+            
+                    time_format="%Y%m%d_%H%M%S"
+                    next_time_str = next_time.strftime(time_format) 
+                    segment_file = os.path.join(outdir, next_time_str+".WAV")
+                    with wave.open(segment_file, 'wb') as wave_segment:
+                        wave_segment.setparams(params)
+                        wave_segment.writeframes(segment_data.tobytes())
+
+                    next_time=next_time+datetime.timedelta(seconds=duration)
+                    if verbose: print("Working on file: "+input_file)
+                    if verbose: print(f"Segment {i+1} written to {segment_file}")
+            except:
+                error="Could not split file: "+input_file+" into "+str(duration)+" second segments."
+                if verbose: print(error)
+                error_log.append(error)
+        else:
+            error="File size of "+input_file+" was "+str(file_size)+" bytes which is less than the one kb filter."
+            if verbose: print(error)
+            error_log.append(error)
+
+    if len(error_log) > 0:
+        file_path=os.path.join(outdir, "ERROR_LOG_split_wave_files.txt")
+        if verbose: print("Error Log = "+file_path)
+        
+        with open(file_path, 'a') as file:
+            print("Time of ERROR LOG= "+datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            for error in error_log:
+                file.write(error + '\n')
+        
+def datetime_2_filename(datetimeObj, AudioMoth=True):
+    if AudioMoth == True:
+        time_format="%Y%m%d_%H%M%S"
+    
+    filename_out=datetimeObj.strftime(time_format)+".WAV"
+    return filename_out      
+        
     
     
