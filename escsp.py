@@ -220,10 +220,10 @@ def filename_2_datetime(files, type="AudioMoth", verbose=False):
     date_times=None
     if len(files) >=1:
         date_times=[]
-        for file in [files]:
+        for file in files:
             #Get the filename
             if verbose : print('file= '+file)
-            filename=(os.path.basename(file).split(".")[0])
+            filename=os.path.basename(file).split(".")[0]
             if verbose : print('filename= '+filename)
 
             if type == "NPS": date_times=None
@@ -927,8 +927,8 @@ def Reports_1(folder, TOTAL=True, verbose=False):
     #Get ESID #
     site_values={columns[0] : filename_2_ESID(folder)}
 
-    #Get size of data in the folder in GB 
-    site_values[columns[1]]=str(get_folder_size_in_gb(folder))
+    #Get size of data in the folder in GB str(round(answer, 2))
+    site_values[columns[1]]=str(round(get_folder_size_in_gb(folder),2))
 
 
     if AM_timestamp_set(folder) == True:
@@ -966,26 +966,29 @@ def Reports_1(folder, TOTAL=True, verbose=False):
     else:
          site_values[columns[8]]=0
 
-
-    df=pd.DataFrame.from_dict(site_values)
+    #return site_values
+    df=pd.DataFrame.from_dict([site_values])
 
     # Define the output CSV file path
     output_file_path = os.path.join(folder,'Report_1.csv')
 
-    # Save the DataFrame to a CSV file
+    #Save the DataFrame to a CSV file
     df.to_csv(output_file_path, index=False)
 
-    if verbose: print(f"DataFrame saved to {output_file_path}")    
+    if verbose: print(f"DataFrame saved to {output_file_path}")   
+
+    return df 
     
-def AM_timestamp_set(folder):
+def AM_timestamp_set(folder, verbose=False):
     file_list = os.listdir(folder)
     
     file_list.remove("CONFIG.TXT")
     for count, file in enumerate(file_list):
         if os.path.isdir(file): file_list.pop(count)
     else:
-        ext=os.path.basename(file).split(".")
+        name, ext=os.path.basename(file).split(".")
         if ext.lower() != "wav": file_list.pop(count)
+        if verbose: print("ext= "+ext)
 
     datetime_list=filename_2_datetime(file_list)
     start_datetime=datetime.datetime(2023, 10, 1, 0, 0, 0)
@@ -998,16 +1001,19 @@ def times_between_dates(folder, start, end):
     file_list = os.listdir(folder)
     file_list.remove("CONFIG.TXT")
 
+    start_split=start.split(",")
+
     for count, file in enumerate(file_list):
         if os.path.isdir(file): file_list.pop(count)
     else:
-        ext=os.path.basename(file).split(".")
+        filename, ext=os.path.basename(file).split(".")
         if ext.lower() != "wav": file_list.pop(count)
         
-
+    start_elements=start.split(",")
+    end_elements=end.split(",")
     datetime_list=filename_2_datetime(file_list)
-    start_datetime=datetime.datetime(start)
-    end_datetime=datetime.datetime(end)
+    start_datetime=datetime.datetime(int(start_elements[0]), int(start_elements[1]), int(start_elements[2]), int(start_elements[3]))
+    end_datetime=datetime.datetime(int(end_elements[0]), int(end_elements[1]), int(end_elements[2]), int(end_elements[3]))
     am_time_set=any(start_datetime <= dt <= end_datetime for dt in datetime_list)
 
     return am_time_set
