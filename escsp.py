@@ -220,6 +220,11 @@ def filename_2_datetime(files, type="AudioMoth", verbose=False):
     date_times=None
     if len(files) >=1:
         date_times=[]
+        for count, file in enumerate(files):
+             if not file.strip(): 
+                  print("blank file")
+                  files.pop(count)
+
         for file in files:
             #Get the filename
             if verbose : print('file= '+file)
@@ -229,25 +234,31 @@ def filename_2_datetime(files, type="AudioMoth", verbose=False):
             if type == "NPS": date_times=None
 
             if type == "AudioMoth":
-                date_string, time_string=filename.split("_")
-                if verbose : print('date_string= '+date_string)
-                if verbose : print('time_string= '+time_string)
+                print("--")
+                print(filename)
+                print(filename.split("_"))
+                print('*')
+                try:
+                    date_string, time_string=filename.split("_")
+                    if verbose : print('date_string= '+date_string)
+                    if verbose : print('time_string= '+time_string)
 
-                #start_date=datetime.date(int(date_string[0:4]),int(date_string[4:6]), int(date_string[6:8]))
-                #start_time=datetime.time(int(time_string[0:2]),int(time_string[2:4]),int(time_string[4:6]))
+                    #start_date=datetime.date(int(date_string[0:4]),int(date_string[4:6]), int(date_string[6:8]))
+                    #start_time=datetime.time(int(time_string[0:2]),int(time_string[2:4]),int(time_string[4:6]))
 
-                year=int(date_string[0:4])
-                month=int(date_string[4:6])
-                day=int(date_string[6:8])
+                    year=int(date_string[0:4])
+                    month=int(date_string[4:6])
+                    day=int(date_string[6:8])
 
-                hour=int(time_string[0:2])
-                minute=int(time_string[2:4])
-                second=int(time_string[4:6])
+                    hour=int(time_string[0:2])
+                    minute=int(time_string[2:4])
+                    second=int(time_string[4:6])
 
-                dandt=datetime.datetime(year, month, day, hour, minute, second)
-                date_times.append(dandt)
+                    dandt=datetime.datetime(year, month, day, hour, minute, second)
+                    date_times.append(dandt)
 
-                
+                except:
+                    print("Unusable file skipped: "+file)
                     
         return date_times
 
@@ -335,15 +346,17 @@ def filename_2_ESID(file):
         f=os.path.basename(file)
         #ESID=folder.split("#")[1][0:3]
         esid=f[5:8]
+        if esid+"A" in f: esid=esid+"A"
 
     if os.path.isdir(file):
         f=file.split("/")
         for segment in f:
             if segment[0:4] == 'ESID':
                 esid=segment[5:8]
+                if esid+"A" in f: esid=esid+"A"
         #f=f[len(f)-2]
         
-    if esid+"A" in f: esid=esid+"A"
+    
     if not  os.path.isdir(file) and not os.path.isfile(file):
         print('error in filename_2_ESID')
         print('error in: '+file)
@@ -875,13 +888,14 @@ def datetime_2_filename(datetimeObj, AudioMoth=True):
     filename_out=datetimeObj.strftime(time_format)+".WAV"
     return filename_out      
 
-def Reports_1(folder, TOTAL=True, verbose=False):
+def Reports_1(folder, TOTAL=True, verbose=False, save=False):
 
 
     # Define the column headings
     if TOTAL:
         columns = [
-            "ESID #", 
+             "ESID #", 
+             "Config file Present = No, 1 = yes",
              "GB of data", 
              "AM Timestamp Set",
              "Three Days of Data Recorded? (Two days before and Eclipse Day 0 = No, 1 = yes)",
@@ -903,7 +917,8 @@ def Reports_1(folder, TOTAL=True, verbose=False):
              ]
     else:          
         columns = [
-            "ESID #", 
+             "ESID #", 
+             "Config file Present = No, 1 = yes",
              "GB of data", 
              "AM Timestamp Set",
              "Three Days of Data Recorded? (Two days before and Eclipse Day 0 = No, 1 = yes)",
@@ -927,44 +942,69 @@ def Reports_1(folder, TOTAL=True, verbose=False):
     #Get ESID #
     site_values={columns[0] : filename_2_ESID(folder)}
 
+    #Is there a CONFIG.TXT file?
+    file_list = os.listdir(folder)
+    if "CONFIG.TXT" in file_list: 
+         site_values[columns[1]]=1
+    else:
+         site_values[columns[1]]=0
+
     #Get size of data in the folder in GB str(round(answer, 2))
-    site_values[columns[1]]=str(round(get_folder_size_in_gb(folder),2))
+    site_values[columns[2]]=str(round(get_folder_size_in_gb(folder),2))
 
+    
+    if site_values[columns[1]] == 1: 
+         if AM_timestamp_set(folder) == True:
+            site_values[columns[3]]=1
+            if times_between_dates(folder, dates[0], dates[1]):
+              site_values[columns[4]]=1
+            else:
+              site_values[columns[4]]=0
 
-    if AM_timestamp_set(folder) == True:
-         site_values[columns[2]]=1
+            if times_between_dates(folder, dates[2], dates[3]):
+                site_values[columns[5]]=1
+            else:
+                site_values[columns[5]]=0
+              
+            if times_between_dates(folder, dates[4], dates[5]):
+                site_values[columns[6]]=1
+            else:
+                site_values[columns[6]]=0
+
+            if times_between_dates(folder, dates[6], dates[7]):
+                site_values[columns[7]]=1
+            else:
+                site_values[columns[7]]=0
+
+            if times_between_dates(folder, dates[8], dates[9]):
+                site_values[columns[8]]=1
+            else:
+                site_values[columns[8]]=0
+
+            if times_between_dates(folder, dates[10], dates[11]): 
+                site_values[columns[9]]=1
+            else:
+                site_values[columns[9]]=0
+            
+         else:
+              site_values[columns[3]]=0
+              site_values[columns[4]] ="N/A"
+              site_values[columns[5]] ="N/A"
+              site_values[columns[6]] ="N/A"
+              site_values[columns[7]] ="N/A"
+              site_values[columns[8]] ="N/A"
+              site_values[columns[9]] ="N/A"
+    
+
+         
     else:
-         site_values[columns[2]]=0
-
-    if times_between_dates(folder, dates[0], dates[1]):
-         site_values[columns[3]]=1
-    else:
-         site_values[columns[3]]=0
-
-    if times_between_dates(folder, dates[2], dates[3]):
-         site_values[columns[4]]=1
-    else:
-         site_values[columns[4]]=0
-
-    if times_between_dates(folder, dates[4], dates[5]):
-         site_values[columns[5]]=1
-    else:
-         site_values[columns[5]]=0
-
-    if times_between_dates(folder, dates[6], dates[7]):
-         site_values[columns[6]]=1
-    else:
-         site_values[columns[6]]=0
-
-    if times_between_dates(folder, dates[8], dates[9]):
-         site_values[columns[7]]=1
-    else:
-         site_values[columns[7]]=0
-
-    if times_between_dates(folder, dates[10], dates[11]):
-         site_values[columns[8]]=1
-    else:
-         site_values[columns[8]]=0
+        site_values[columns[3]] ="N/A"
+        site_values[columns[4]] ="N/A"
+        site_values[columns[5]] ="N/A"
+        site_values[columns[6]] ="N/A"
+        site_values[columns[7]] ="N/A"
+        site_values[columns[8]] ="N/A"
+        site_values[columns[9]] ="N/A"
 
     #return site_values
     df=pd.DataFrame.from_dict([site_values])
@@ -973,7 +1013,8 @@ def Reports_1(folder, TOTAL=True, verbose=False):
     output_file_path = os.path.join(folder,'Report_1.csv')
 
     #Save the DataFrame to a CSV file
-    df.to_csv(output_file_path, index=False)
+    if save:
+         df.to_csv(output_file_path, index=False)
 
     if verbose: print(f"DataFrame saved to {output_file_path}")   
 
@@ -982,33 +1023,104 @@ def Reports_1(folder, TOTAL=True, verbose=False):
 def AM_timestamp_set(folder, verbose=False):
     file_list = os.listdir(folder)
     
-    file_list.remove("CONFIG.TXT")
+    if "CONFIG.TXT" in file_list: file_list.remove("CONFIG.TXT")
+
+    
+
     for count, file in enumerate(file_list):
         if os.path.isdir(file): file_list.pop(count)
-    else:
-        name, ext=os.path.basename(file).split(".")
-        if ext.lower() != "wav": file_list.pop(count)
-        if verbose: print("ext= "+ext)
 
-    datetime_list=filename_2_datetime(file_list)
+    for count, file in enumerate(file_list):
+        if len(os.path.basename(file).split(".")) != 2 :
+             file_list.pop(count)     
+    for count, file in enumerate(file_list):   
+        if len(os.path.basename(file).split(".")) >= 2 :
+             file_list.pop(count)
+    for count, file in enumerate(file_list):   
+        if len(os.path.basename(file).split(".")) <= 2 :
+             file_list.pop(count)
+    for count, file in enumerate(file_list):
+        if len(os.path.basename(file).split(".")) == 3 :
+             file_list.pop(count)
+    for count, file in enumerate(file_list):
+        if len(os.path.basename(file).split(".")) == 1 :
+             file_list.pop(count)      
+        
+    for count, file in enumerate(file_list):
+         if file[0] == ".": file_list.pop(count)
+    
+    for count, file in enumerate(file_list):
+         if file[0:1] == "._": file_list.pop(count)
+    
+         
+    for count, file in enumerate(file_list): 
+        print(file)
+        print(len(os.path.basename(file).split("."))) 
+        if len(os.path.basename(file).split(".")) == 2:       
+            filename, ext=os.path.basename(file).split(".")
+            if ext.lower() != "wav": file_list.pop(count)
+        else: file_list.pop(count)
+
+    #Remove anything that is not a wav file
+    new_list = [file for file in file_list if os.path.splitext(file)[1].lower() == '.wav']
+    #Remove any blank elements
+    new_list = [element for element in new_list if element.strip()]
+    #for count, file in enumerate(new_list):
+    #    if os.path.isdir(file): file_list.pop(count)
+    #else:
+    #    name, ext=os.path.basename(file).split(".")
+    #    if ext.lower() != "wav": file_list.pop(count)
+    #    if verbose: print("ext= "+ext)
+
+    datetime_list=filename_2_datetime(new_list)
+    print(new_list)
+    print(folder)
+    print(datetime_list) 
     start_datetime=datetime.datetime(2023, 10, 1, 0, 0, 0)
     end_datetime=datetime.datetime(2024, 4, 11, 0, 0, 0)
-    am_time_set=any(start_datetime <= dt <= end_datetime for dt in datetime_list)
+    if datetime_list != None:
+        am_time_set=any(start_datetime <= dt <= end_datetime for dt in datetime_list)
+    else: am_time_set=False
 
     return am_time_set
 
 def times_between_dates(folder, start, end):
     file_list = os.listdir(folder)
-    file_list.remove("CONFIG.TXT")
+    
+    if "CONFIG.TXT" in file_list: file_list.remove("CONFIG.TXT")
 
     start_split=start.split(",")
 
     for count, file in enumerate(file_list):
         if os.path.isdir(file): file_list.pop(count)
-    else:
-        filename, ext=os.path.basename(file).split(".")
-        if ext.lower() != "wav": file_list.pop(count)
+    for count, file in enumerate(file_list):
+        if len(os.path.basename(file).split(".")) != 2 :
+             file_list.pop(count)
+    for count, file in enumerate(file_list):   
+        if len(os.path.basename(file).split(".")) >= 2 :
+             file_list.pop(count)
+    for count, file in enumerate(file_list):   
+        if len(os.path.basename(file).split(".")) <= 2 :
+             file_list.pop(count)
+    for count, file in enumerate(file_list):
+        if len(os.path.basename(file).split(".")) == 3 :
+             file_list.pop(count)
+    for count, file in enumerate(file_list):
+        if len(os.path.basename(file).split(".")) == 1 :
+             file_list.pop(count)      
         
+    for count, file in enumerate(file_list):
+         if file[0] == ".": file_list.pop(count)
+    
+    for count, file in enumerate(file_list):
+         if file[0:1] == "._": file_list.pop(count)
+         
+    for count, file in enumerate(file_list): 
+        if len(os.path.basename(file).split(".")) == 2:       
+            filename, ext=os.path.basename(file).split(".")
+            if ext.lower() != "wav": file_list.pop(count)
+        else: file_list.pop(count)
+    
     start_elements=start.split(",")
     end_elements=end.split(",")
     datetime_list=filename_2_datetime(file_list)
