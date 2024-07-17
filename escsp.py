@@ -72,7 +72,7 @@ def mk_eclipse_data_csv(folder):
          print("mk_eclipse_data_csv")
          print(folder+" is not a folder")
      
-def get_audio_start_info(files, type="AudioMoth", verbose=None):
+def get_audio_start_info(files, file_type="AudioMoth", verbose=None):
     """ Return recording start information for a wave file based on the filename. 
     Start time and date returned using datetime format.
     NPS Files return: start_time, start_date, site_name """
@@ -85,7 +85,7 @@ def get_audio_start_info(files, type="AudioMoth", verbose=None):
         start_times=[]
         site_names=[]
 
-        if type == "NPS":
+        if file_type == "NPS":
             filename=filename.split(".")[0]
             site_name, date_string, time_string=filename.split("_")
 
@@ -102,7 +102,7 @@ def get_audio_start_info(files, type="AudioMoth", verbose=None):
 
             return start_times, start_dates, site_names
         
-        if type == "AudioMoth":
+        if file_type == "AudioMoth":
             filename=filename.split(".")[0]
             site_name, date_string, time_string=filename.split("_")
 
@@ -214,53 +214,55 @@ def escsp_get_eclipse_time_trio(eclipse_info, verbose=None):
     
     return eclipse_time_trio
     
-def filename_2_datetime(files, type="AudioMoth", verbose=False):
-    """ Return a list if datetimes that correspond to the  """
+def filename_2_datetime(files, file_type="AudioMoth", verbose=False):
+    """ Return a list if datetimes that correspond to the name of a WAV file"""
     if verbose : print("Here 1")
+    if type(files) == type('a'): files=[files]
     date_times=None
-    if len(files) >=1:
-        date_times=[]
-        for count, file in enumerate(files):
-             if not file.strip(): 
-                  print("blank file")
-                  files.pop(count)
 
-        for file in files:
-            #Get the filename
-            if verbose : print('file= '+file)
-            filename=os.path.basename(file).split(".")[0]
-            if verbose : print('filename= '+filename)
+    date_times=[]
+    for count, file in enumerate(files):
+         if not file.strip(): 
+              print("blank file")
+              files.pop(count)
 
-            if type == "NPS": date_times=None
+    for file in files:
+        #Get the filename
+        if verbose : print('file= '+file)
+        filename=os.path.basename(file).split(".")[0]
+        if verbose : print('filename= '+filename)
 
-            if type == "AudioMoth":
-                print("--")
-                print(filename)
-                print(filename.split("_"))
-                print('*')
-                try:
-                    date_string, time_string=filename.split("_")
-                    if verbose : print('date_string= '+date_string)
-                    if verbose : print('time_string= '+time_string)
+        if file_type == "NPS": date_times=None
 
-                    #start_date=datetime.date(int(date_string[0:4]),int(date_string[4:6]), int(date_string[6:8]))
-                    #start_time=datetime.time(int(time_string[0:2]),int(time_string[2:4]),int(time_string[4:6]))
-
-                    year=int(date_string[0:4])
-                    month=int(date_string[4:6])
-                    day=int(date_string[6:8])
-
-                    hour=int(time_string[0:2])
-                    minute=int(time_string[2:4])
-                    second=int(time_string[4:6])
-
-                    dandt=datetime.datetime(year, month, day, hour, minute, second)
-                    date_times.append(dandt)
-
-                except:
-                    print("Unusable file skipped: "+file)
+        if file_type == "AudioMoth":
+            if verbose : print("--")
+            if verbose : print(filename)
+            if verbose : print(filename.split("_"))
+            if verbose : print('*')
+            if True: #try
                     
-        return date_times
+                date_string, time_string=filename.split("_")
+                if verbose : print('date_string= '+date_string)
+                if verbose : print('time_string= '+time_string)
+
+                #start_date=datetime.date(int(date_string[0:4]),int(date_string[4:6]), int(date_string[6:8]))
+                #start_time=datetime.time(int(time_string[0:2]),int(time_string[2:4]),int(time_string[4:6]))
+
+                year=int(date_string[0:4])
+                month=int(date_string[4:6])
+                day=int(date_string[6:8])
+
+                hour=int(time_string[0:2])
+                minute=int(time_string[2:4])
+                second=int(time_string[4:6])
+
+                dandt=datetime.datetime(year, month, day, hour, minute, second)
+                date_times.append(dandt)
+
+            else: #except
+                print("Unusable file skipped: "+file+" (filename_2_datetime)")
+                    
+    return date_times
 
 def get_files_between_times(files, start_time, end_time):
     """Return only the filepaths for the recording files that are between the start_time & the end_time"""
@@ -268,7 +270,7 @@ def get_files_between_times(files, start_time, end_time):
     #I know there is a better way (more matrix) to do this, but I don't have the time to figure it out.
     return_files=None
     for file in files:
-        date_and_time=filename_2_datetime(file, type="AudioMoth")
+        date_and_time=filename_2_datetime(file, file_type="AudioMoth")
         date_and_time=date_and_time[0]
         if date_and_time >= start_time and date_and_time <= end_time: 
             if not return_files: return_files=[file]
@@ -309,10 +311,10 @@ def adjust_am_datetime(files, start_time, move=False, verbose=False):
     
         for file in files:  
             if verbose: print("File= "+ file)
-            d_and_t_0=filename_2_datetime(file, type="AudioMoth")
+            d_and_t_0=filename_2_datetime(file, file_type="AudioMoth")
             if counter<= N_files-1:
                 if verbose: print("Calculating "+files[counter]+" - "+file)
-                delta=filename_2_datetime(files[counter], type="AudioMoth")[0]-d_and_t_0[0]
+                delta=filename_2_datetime(files[counter], file_type="AudioMoth")[0]-d_and_t_0[0]
                 delta_times.append(delta)
 
             date_and_times.append(d_and_t_0[0])
@@ -805,6 +807,7 @@ def split_wave_files(indir, outdir, duration=60, verbose=False):
     indir (str): Path to the folder containing input WAV file.
     outdir (str): Directory to save the output segments.
     duration (int): Length of each segment in seconds (default is 60 seconds).
+    verbose (bool): If True, execute print statements for debugging 
     """
     error_log=[]
     input_files=glob.glob(os.path.join(indir,"*."+"WAV"))
@@ -815,12 +818,13 @@ def split_wave_files(indir, outdir, duration=60, verbose=False):
         file_size = os.path.getsize(input_file)
         
         if file_size > 1024:
-            try:
+            try :
                 # Read the input WAV file
                 sample_rate, data = wavfile.read(input_file)
     
                 # Calculate the number of samples per segment
                 samples_per_segment = duration * sample_rate
+                if verbose: print("samples_per_segment: "+str(samples_per_segment))
     
                 # Create the output directory if it doesn't exist
                 if not os.path.exists(outdir):
@@ -833,9 +837,11 @@ def split_wave_files(indir, outdir, duration=60, verbose=False):
                 # Split the data into segments
                 total_samples = len(data)
                 num_segments = total_samples // samples_per_segment
-
-                next_time=filename_2_datetime(os.path.basename(input_file), type="AudioMoth")[0]
-                print(type(next_time))
+                if verbose: print("input_file: "+input_file)
+                next_time=filename_2_datetime(os.path.basename(input_file), 
+                                              verbose=verbose)[0]
+                
+                if verbose: print(type(next_time))
                 if type(next_time) == "list":
                     if verbose: print(type(next_time))
                     next_time=next_time[0]
@@ -856,6 +862,7 @@ def split_wave_files(indir, outdir, duration=60, verbose=False):
                     time_format="%Y%m%d_%H%M%S"
                     next_time_str = next_time.strftime(time_format) 
                     segment_file = os.path.join(outdir, next_time_str+".WAV")
+                    if verbose: print("Outfile= "+ segment_file)
                     with wave.open(segment_file, 'wb') as wave_segment:
                         wave_segment.setparams(params)
                         wave_segment.writeframes(segment_data.tobytes())
@@ -863,7 +870,7 @@ def split_wave_files(indir, outdir, duration=60, verbose=False):
                     next_time=next_time+datetime.timedelta(seconds=duration)
                     if verbose: print("Working on file: "+input_file)
                     if verbose: print(f"Segment {i+1} written to {segment_file}")
-            except:
+            except: #except
                 error="Could not split file: "+input_file+" into "+str(duration)+" second segments."
                 if verbose: print(error)
                 error_log.append(error)
@@ -875,11 +882,15 @@ def split_wave_files(indir, outdir, duration=60, verbose=False):
     if len(error_log) > 0:
         file_path=os.path.join(outdir, "ERROR_LOG_split_wave_files.txt")
         if verbose: print("Error Log = "+file_path)
-        
+             
         with open(file_path, 'a') as file:
             print("Time of ERROR LOG= "+datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            file.write("Time of ERROR LOG= "+datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '\n')
             for error in error_log:
                 file.write(error + '\n')
+            file.write("End of Log" + '\n')
+            file.write("##############################################" + '\n')
+            file.close()
         
 def datetime_2_filename(datetimeObj, AudioMoth=True):
     if AudioMoth == True:
@@ -1021,61 +1032,21 @@ def Reports_1(folder, TOTAL=True, verbose=False, save=False):
     return df 
     
 def AM_timestamp_set(folder, verbose=False):
-    file_list = os.listdir(folder)
+    file_list = glob.glob(os.path.join(folder,"*."+"WAV"))
+    """
+    Split a large WAV file into segments and update the metadata.
     
-    if "CONFIG.TXT" in file_list: file_list.remove("CONFIG.TXT")
+    Parameters:
+    folder (str): Path to the folder containing input WAV files.
+    verbose (bool): If True, execute print statements for debugging 
+    """
 
-    
+    am_time_set=False
 
-    for count, file in enumerate(file_list):
-        if os.path.isdir(file): file_list.pop(count)
-
-    for count, file in enumerate(file_list):
-        if len(os.path.basename(file).split(".")) != 2 :
-             file_list.pop(count)     
-    for count, file in enumerate(file_list):   
-        if len(os.path.basename(file).split(".")) >= 2 :
-             file_list.pop(count)
-    for count, file in enumerate(file_list):   
-        if len(os.path.basename(file).split(".")) <= 2 :
-             file_list.pop(count)
-    for count, file in enumerate(file_list):
-        if len(os.path.basename(file).split(".")) == 3 :
-             file_list.pop(count)
-    for count, file in enumerate(file_list):
-        if len(os.path.basename(file).split(".")) == 1 :
-             file_list.pop(count)      
-        
-    for count, file in enumerate(file_list):
-         if file[0] == ".": file_list.pop(count)
-    
-    for count, file in enumerate(file_list):
-         if file[0:1] == "._": file_list.pop(count)
-    
-         
-    for count, file in enumerate(file_list): 
-        print(file)
-        print(len(os.path.basename(file).split("."))) 
-        if len(os.path.basename(file).split(".")) == 2:       
-            filename, ext=os.path.basename(file).split(".")
-            if ext.lower() != "wav": file_list.pop(count)
-        else: file_list.pop(count)
-
-    #Remove anything that is not a wav file
-    new_list = [file for file in file_list if os.path.splitext(file)[1].lower() == '.wav']
-    #Remove any blank elements
-    new_list = [element for element in new_list if element.strip()]
-    #for count, file in enumerate(new_list):
-    #    if os.path.isdir(file): file_list.pop(count)
-    #else:
-    #    name, ext=os.path.basename(file).split(".")
-    #    if ext.lower() != "wav": file_list.pop(count)
-    #    if verbose: print("ext= "+ext)
-
-    datetime_list=filename_2_datetime(new_list)
-    print(new_list)
-    print(folder)
-    print(datetime_list) 
+    datetime_list=filename_2_datetime(file_list, verbose=verbose)
+    if verbose: print(file_list)
+    if verbose: print(folder)
+    if verbose: print(datetime_list) 
     start_datetime=datetime.datetime(2023, 10, 1, 0, 0, 0)
     end_datetime=datetime.datetime(2024, 4, 11, 0, 0, 0)
     if datetime_list != None:
@@ -1084,45 +1055,13 @@ def AM_timestamp_set(folder, verbose=False):
 
     return am_time_set
 
-def times_between_dates(folder, start, end):
-    file_list = os.listdir(folder)
-    
-    if "CONFIG.TXT" in file_list: file_list.remove("CONFIG.TXT")
-
-    start_split=start.split(",")
-
-    for count, file in enumerate(file_list):
-        if os.path.isdir(file): file_list.pop(count)
-    for count, file in enumerate(file_list):
-        if len(os.path.basename(file).split(".")) != 2 :
-             file_list.pop(count)
-    for count, file in enumerate(file_list):   
-        if len(os.path.basename(file).split(".")) >= 2 :
-             file_list.pop(count)
-    for count, file in enumerate(file_list):   
-        if len(os.path.basename(file).split(".")) <= 2 :
-             file_list.pop(count)
-    for count, file in enumerate(file_list):
-        if len(os.path.basename(file).split(".")) == 3 :
-             file_list.pop(count)
-    for count, file in enumerate(file_list):
-        if len(os.path.basename(file).split(".")) == 1 :
-             file_list.pop(count)      
-        
-    for count, file in enumerate(file_list):
-         if file[0] == ".": file_list.pop(count)
-    
-    for count, file in enumerate(file_list):
-         if file[0:1] == "._": file_list.pop(count)
-         
-    for count, file in enumerate(file_list): 
-        if len(os.path.basename(file).split(".")) == 2:       
-            filename, ext=os.path.basename(file).split(".")
-            if ext.lower() != "wav": file_list.pop(count)
-        else: file_list.pop(count)
+def times_between_dates(folder, start, end, verbose=False):
+    file_list = glob.glob(os.path.join(folder,"*."+"WAV"))
     
     start_elements=start.split(",")
+    if verbose: print(start_elements)
     end_elements=end.split(",")
+    if verbose: print(end_elements)
     datetime_list=filename_2_datetime(file_list)
     start_datetime=datetime.datetime(int(start_elements[0]), int(start_elements[1]), int(start_elements[2]), int(start_elements[3]))
     end_datetime=datetime.datetime(int(end_elements[0]), int(end_elements[1]), int(end_elements[2]), int(end_elements[3]))
