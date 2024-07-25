@@ -21,14 +21,18 @@ for folder in folders:
         path_chunks=folder.split('/')
         if path_chunks[len(path_chunks)-1][0:4] == 'ESID':
             outdir=os.path.join(top_out_directorty,path_chunks[len(path_chunks)-1]+suffix)
+            if verb: print(" outdir= "+ outdir)
         else:
             if path_chunks[len(path_chunks)-2][0:4] == 'ESID':
                 outdir=os.path.join(top_out_directorty,path_chunks[len(path_chunks)-2]+suffix)
+                if verb: print(" outdir= "+ outdir)
             else:
                 if path_chunks[len(path_chunks)-1][0:4] != '':
                     outdir=os.path.join(top_out_directorty,path_chunks[len(path_chunks)-1]+suffix)
-                else:
-                    outdir=os.path.join(top_out_directorty,path_chunks[len(path_chunks)-2]+suffix)
+            if verb: print(" outdir= "+ outdir)
+            else:
+                outdir=os.path.join(top_out_directorty,path_chunks[len(path_chunks)-2]+suffix)
+            if verb: print(" outdir= "+ outdir)
         
         if os.path.exists(outdir):
             print("Directory "+outdir+" already exists.")

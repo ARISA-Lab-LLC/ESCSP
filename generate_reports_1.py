@@ -8,8 +8,10 @@ from escsp import *
 import os
 ##########################################################
 #Set global variables
-top_directory="/media/tracy/ESCSPA00/Total_Raw_Data/"
-outname="Report_1.csv"
+#top_directory="/media/tracy/ESCSPA00/Total_Raw_Data/"
+top_directory="/media/tracy/SIU_PEASE01/"
+#outname="Report_1.csv"
+outname="Report_1_pease.csv"
 ##########################################################
 folders=get_es_folder_list(top_directory, verbose=False, split = False)
 

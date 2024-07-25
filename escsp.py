@@ -25,6 +25,7 @@ from tracemalloc import stop
 from scipy.misc import derivative
 import copy
 from moviepy.editor import *
+import re
 ###########################################################################
 #
 user_images=None
@@ -590,7 +591,14 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
         if verbose: print("folder= "+folder)
         ESID=filename_2_ESID(folder)
         if verbose: print("ESID#= "+ESID)
-        eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
+        #eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
+        eclipse_data_csv=glob.glob(os.path.join(folder,"*eclipse_data.csv"))
+
+        #If multiple eclipse_data_csv files, choose the first one 
+        if type(eclipse_data_csv) == type([1,3]):
+            eclipse_data_csv=eclipse_data_csv[0] 
+
+
         spreadsheet_exist=os.path.isfile(eclipse_data_csv)
 
         if spreadsheet_exist : 
@@ -967,11 +975,8 @@ def Reports_1(folder, TOTAL=True, verbose=False, save=False):
     if site_values[columns[1]] == 1: 
          if AM_timestamp_set(folder) == True:
             site_values[columns[3]]=1
-            if times_between_dates(folder, dates[0], dates[1]):
-              site_values[columns[4]]=1
-            else:
-              site_values[columns[4]]=0
-
+            
+            site_values[columns[4]]=0
             if times_between_dates(folder, dates[2], dates[3]):
                 site_values[columns[5]]=1
             else:
@@ -996,6 +1001,11 @@ def Reports_1(folder, TOTAL=True, verbose=False, save=False):
                 site_values[columns[9]]=1
             else:
                 site_values[columns[9]]=0
+
+            if site_values[columns[5]] == 1 and site_values[columns[6]] == 1 and site_values[columns[7]] == 1:
+              site_values[columns[4]]=1
+            else:
+              site_values[columns[4]]=0
             
          else:
               site_values[columns[3]]=0
@@ -1090,3 +1100,24 @@ def get_folder_size_in_gb(folder_path):
     # Convert bytes to gigabytes
     total_size_gb = total_size / (1024 ** 3)
     return total_size_gb
+
+def get_youtube_link(stdout, verbose=False):
+    if type(stdout) == type([]):
+         text=stdout[0]
+    if type(stdout) == type('a'):
+         text=stdout
+
+    # Regular expression to find the Video Id
+    match = re.search(r"Video id\s+'([^']+)'", text)
+
+    if match:
+        video_id = match.group(1)
+        video_id.replace("'", "")
+        video_id.strip()
+        return_value="https://youtu.be/"+video_id
+        if verbose: print(f"Extracted Video ID: {video_id}")
+    else:
+        return_value=None
+        if verbose: print("No Video ID found.")
+
+    return return_value
