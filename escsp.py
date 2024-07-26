@@ -343,30 +343,41 @@ def get_es_folder_list(top_level, verbose=False, split = False):
     if verbose: print(subfolders)
     return subfolders
                     
-def filename_2_ESID(file):
-    esid=None
-    if os.path.isfile(file):
-        f=os.path.basename(file)
-        #ESID=folder.split("#")[1][0:3]
-        esid=f[5:8]
-        if esid+"A" in f: esid=esid+"A"
+def filename_2_ESID(file, verbose=False):
 
-    if os.path.isdir(file):
-        f=file.split("/")
-        for segment in f:
-            if segment[0:4] == 'ESID':
-                esid=segment[5:8]
-                if esid+"A" in f: esid=esid+"A"
-        #f=f[len(f)-2]
-        
+    """
+    Extracts the three digits following the pattern 'ESID#' in the provided text.
+    If there is an "A" after the the 3 digits then an "A" is added
     
-    if not  os.path.isdir(file) and not os.path.isfile(file):
-        print('error in filename_2_ESID')
-        print('error in: '+file)
-       
+    Args:
+    - text (str): The input string containing the 'ESID#' pattern.
+    
+    Keyword arguments:
+    -verbose (any): If set with anything other than None or False, print statements
+        will be executed.
 
+    Returns:
+    - str: The ESID# (in 3 or 4 characters) if found, else None.
+    """
 
+    esid=None
+    # Regular expression to find three digits following 'ESID#'
+    match = re.search(r"ESID#(\d{3})", file)
+    if match:
+        esid=match.group(1)
+        if esid+"A" in file: esid=esid+"A"
+        if esid+"B" in file: esid=esid+"B"
+        if esid+"a" in file: esid=esid+"a"
+        if esid+"b" in file: esid=esid+"b"
+        if verbose: print(f"Extracted ESID digits: {esid}")
+    
+
+    if esid ==None:
+         if verbose: print("No ESID digits found.")
+             
+   
     return esid
+
 
 def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", verbose=False):
     if verbose: print(folder)
@@ -1108,9 +1119,11 @@ def get_youtube_link(stdout, verbose=False):
          text=stdout
 
     # Regular expression to find the Video Id
-    match = re.search(r"Video id\s+'([^']+)'", text)
+    match_link = re.search(r"Video id\s+'([^']+)'", text)
+    
+    if verbose: print("match_link type = "+type(match_link))
 
-    if match:
+    if match_link:
         video_id = match.group(1)
         video_id.replace("'", "")
         video_id.strip()
