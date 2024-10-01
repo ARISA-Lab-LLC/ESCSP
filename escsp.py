@@ -26,8 +26,9 @@ from scipy.misc import derivative
 import copy
 from moviepy.editor import *
 import re
+import scipy
 ###########################################################################
-#
+#Global Variables section
 user_images=None
 youtube_assets_folder="./YouTube_Assets/"
 privacyStatus="private"
@@ -35,7 +36,7 @@ privacyStatus="private"
 
 AM_Spreadsheet=os.getenv("total_redacted_AM_spreadsheet")
 ###########################################################################
-
+#Function Definitions Section
 def mk_eclipse_data_csv(folder):
     if os.path.isdir(folder):
          AM_df=pd.read_csv(AM_Spreadsheet)
@@ -164,17 +165,18 @@ def escsp_read_eclipse_csv(eclipse_data_csv, verbose=None):
         df=pd.read_csv(eclipse_data_csv, header=[0])
         time_format="%Y-%m-%d %H:%M:%S"
         if verbose: print("success! " + eclipse_data_csv) 
-        eclipse_info={"ESID": df.iloc[0, 1], 
-                  "Latitude":df.iloc[1, 1], 
-                  "Longitude" :df.iloc[2, 1],
-                  "Eclipse_type" :df.iloc[3, 1], 
-                  "CoveragePercent" :df.iloc[4, 1], 
-                  "FirstContactDate" :df.iloc[5, 1], 
-                  "FirstContactTimeUTC" :df.iloc[6, 1], 
-                  "SecondContactTimeUTC" :df.iloc[7, 1], 
-                  "ThirdContactTimeUTC" :df.iloc[8, 1], 
-                  "FourthContactTimeUTC" :df.iloc[9, 1], 
-                  "MaxEclipseTimeUTC" :df.iloc[10, 1] }
+        #Doing in this way instead of using df.to_dict to make a simpler dictionary
+        eclipse_info={"ESID": str(df["ESID"][0]).zfill(3), 
+                  "Latitude":df["Latitude"][0], 
+                  "Longitude" :df["Longitude"][0],
+                  "Eclipse_type" :df["LocalType"][0], 
+                  "CoveragePercent" :df["CoveragePercent"][0], 
+                  "FirstContactDate" :df["FirstContactDate"][0], 
+                  "FirstContactTimeUTC" :df["FirstContactTimeUTC"][0], 
+                  "SecondContactTimeUTC" :df["SecondContactTimeUTC"][0], 
+                  "ThirdContactTimeUTC" :df["ThirdContactTimeUTC"][0], 
+                  "FourthContactTimeUTC" :df["FourthContactTimeUTC"][0], 
+                  "MaxEclipseTimeUTC" :df["TotalEclipseTimeUTC"][0] }
 
     else: print('Error! No file named '+eclipse_data_csv)
 
@@ -194,7 +196,9 @@ def escsp_get_eclipse_time_trio(eclipse_info, verbose=None):
         eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
 
     else: #Set the range to be 3 minutes before and after the eclipse.
-        max_eclipse= eclipse_info["FirstContactDate"] + " " +eclipse_info["MaxEclipseTimeUTC"] 
+        max_eclipse= datetime.datetime.strptime(eclipse_info["FirstContactDate"] + 
+                                                " " +eclipse_info["MaxEclipseTimeUTC"], 
+                                                time_format)
         eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
         eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
 
@@ -383,15 +387,26 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
     if verbose: print(folder)
     ESID=filename_2_ESID(folder)
     if verbose: print("ESID #=" + ESID)
-    plot_1_name=os.path.join(folder, "PSD_plot_"+ESID+".png")
+    plot_1_name=os.path.join(plots_folder, "PSD_plot_"+ESID+".png")
     if verbose: print("plot_1_name= "+plot_1_name)
     plot_1a_name=os.path.join(plots_folder, "PSD_plot_"+ESID+".png")
+
+    #Welch plots
+    plot_2a_name=os.path.join(plots_folder, "PSD_Welch_plot_"+ESID+".png")
+    if verbose: print("plot_2a_name (Welch)= "+plot_2a_name)
+    plot_2b_name=os.path.join(plots_folder, "PSD_Bartlett_plot_"+ESID+".png")
+    if verbose: print("plot_2b_name (Bartlett)= "+plot_2b_name)
+
+
     eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
+
+
     if os.path.isfile(eclipse_data_csv) :
         df=pd.read_csv(eclipse_data_csv, header=[0])
         time_format="%Y-%m-%d %H:%M:%S"
         if verbose: print("success! " + eclipse_data_csv) 
-        if eclipse_type == "Annular" or eclipse_type == "Total":
+        if type(df["SecondContactTimeUTC"].values[0]) == type("test"):
+        #if eclipse_type == "Annular" or eclipse_type == "Total":
 #set the eclipse start time
             chars_to_remove=["\"", "\'", "[", "]"]
             second_contact=str(df["FirstContactDate"].values[0]+" "+df["SecondContactTimeUTC"].values[0])
@@ -427,6 +442,15 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
         two_days_before_files=None
         one_day_before_files=None                      
 
+        fs_ecl_wel=None
+        fs_odb_wel=None
+        fs_tdb_wel=None                     
+
+        fs_ecl_bart=None
+        fs_odb_bart=None
+        fs_tdb_bart=None
+        test_arr=np.ndarray(shape=(2,2), dtype=float, order='F')
+        
         two_days_before_files=get_files_between_times(recording_files, two_days_before_start_time, two_days_before_end_time)     
         one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
         eclipse_files=get_files_between_times(recording_files, eclipse_start_time, eclipse_end_time)
@@ -458,25 +482,73 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
             #f0, eclipse_psd=scipy.signal.periodogram(eclipse_wav, fs_ecl)
             fig, ax =plt.subplots()
             ax.psd(eclipse_wav, Fs=fs_ecl, color="orange", label="Eclipse Day")
-
-        if two_days_before_files :
-            print("Length of filelist: " + str(len(two_days_before_files)))
-            two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
-            #f2, two_days_before_psd=scipy.signal.periodogram(two_days_before_wav, fs_tdb)
-            ax.psd(two_days_before_wav, Fs=fs_tdb, color="green", label="Two Days Before")
-
-        if one_day_before_files: 
-            one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files, verbose=verbose)
-            #f1, one_day_before_psd=scipy.signal.periodogram(one_day_before_wav, fs_odb)
-            ax.psd(one_day_before_wav, Fs=fs_odb, color="blue", label="One Day Before")
+            fs_ecl_wel, eclipse_wav_psd_welch=calc_psd(eclipse_wav, fs_ecl)
+            fs_ecl_bart, eclipse_wav_psd_bart=calc_psd(eclipse_wav, fs_ecl, Bartlett=True)
 
 
-            legend = ax.legend(loc='upper center', shadow=True, fontsize='large')
-            plt.savefig(plot_1_name)
-            if verbose: print("Saved file "+plot_1_name)    
-            plt.savefig(plot_1a_name)
-            if verbose: print("Saved file "+plot_1a_name)
+            if two_days_before_files :
+                print("Length of filelist: " + str(len(two_days_before_files)))
+                two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
+                #f2, two_days_before_psd=scipy.signal.periodogram(two_days_before_wav, fs_tdb)
+                ax.psd(two_days_before_wav, Fs=fs_tdb, color="green", label="Two Days Before")
+                fs_tdb_wel, tdb_wav_psd_welch=calc_psd(two_days_before_wav, fs_tdb)
+                fs_tdb_bart, tdb_wav_psd_bart=calc_psd(two_days_before_wav, fs_tdb, Bartlett=True)
+
+            if one_day_before_files: 
+                one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files, verbose=verbose)
+                #f1, one_day_before_psd=scipy.signal.periodogram(one_day_before_wav, fs_odb)
+                ax.psd(one_day_before_wav, Fs=fs_odb, color="blue", label="One Day Before")
+                fs_odb_wel, odb_wav_psd_welch=calc_psd(one_day_before_wav, fs_odb)
+                fs_odb_bart, odb_wav_psd_bart=calc_psd(one_day_before_wav, fs_odb, Bartlett=True)
+
+
+                legend = ax.legend(loc='upper center', shadow=True, fontsize='large')
+                plt.savefig(plot_1_name)
+                if verbose: print("Saved file "+plot_1_name)    
+                plt.savefig(plot_1a_name)
+                if verbose: print("Saved file "+plot_1a_name)
+                plt.close(fig)
+
+        #Make Plots of the Welch PSD
+
+        
+        if type(fs_ecl_wel) == type(test_arr):
+
+            plt.figure()
+            plt.title("PSD Welch's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
+            plt.semilogy(fs_ecl_wel, eclipse_wav_psd_welch,color="orange", label="Eclipse Day")
+            
+            if type(fs_odb_wel) == type(test_arr):
+                 plt.semilogy(fs_odb_wel, odb_wav_psd_welch, color="blue", label="One Day Before")
+            if type(fs_tdb_wel) == type(test_arr):
+                 plt.semilogy(fs_tdb_wel, tdb_wav_psd_welch, color="green", label="Two Days Before")
+            plt.xlabel('frequency [Hz]')
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.legend(loc='upper center', shadow=True, fontsize='large')
+
+            plt.savefig(plot_2a_name)
+            if verbose: print("Saved file "+plot_2a_name)
             plt.close(fig)
+            
+        #Make Plots of the Bartlett PSD
+        if type(fs_ecl_bart) == type(test_arr):
+
+            plt.figure()
+            plt.title("PSD Bartlett's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
+            plt.semilogy(fs_ecl_bart, eclipse_wav_psd_bart,color="orange", label="Eclipse Day")
+            if type(fs_odb_bart) == type(test_arr):
+
+                 plt.semilogy(fs_odb_bart, odb_wav_psd_bart, color="blue", label="One Day Before")
+            if type(fs_tdb_bart) == type(test_arr):
+                 plt.semilogy(fs_tdb_bart, tdb_wav_psd_bart, color="green", label="Two Days Before")
+            plt.xlabel('frequency [Hz]')
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.legend(loc='upper center', shadow=True, fontsize='large')
+
+            plt.savefig(plot_2b_name)
+            if verbose: print("Saved file "+plot_2b_name)
+            plt.close(fig)
+            
 
     else:
         print("No file "+eclipse_data_csv+" found.")
@@ -502,8 +574,8 @@ def escsp_mk_youtube_description(eclipse_info, Recording_Date,Recording_Start_Ti
     text=text1
     text=text+"Recording Date: "+Recording_Date+"\n"
     text=text+"Recording Start Time: "+Recording_Start_Time+"\n"
-    text=text+"Latitude: "+ eclipse_info["Latitude"] +"\n"
-    text=text+"Longitude: "+ eclipse_info["Longitude"]  +"\n"
+    text=text+"Latitude: "+ str(eclipse_info["Latitude"]) +"\n"
+    text=text+"Longitude: "+ str(eclipse_info["Longitude"])  +"\n"
     text=text+"Type of Eclipse: " + Recording_type +"\n\n"
     text=text+text2
     text=text+"\n\n"
@@ -604,16 +676,11 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
         if verbose: print("ESID#= "+ESID)
         #eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
         eclipse_data_csv=glob.glob(os.path.join(folder,"*eclipse_data.csv"))
+ 
+       
 
-        #If multiple eclipse_data_csv files, choose the first one 
-        if type(eclipse_data_csv) == type([1,3]):
-            eclipse_data_csv=eclipse_data_csv[0] 
-
-
-        spreadsheet_exist=os.path.isfile(eclipse_data_csv)
-
-        if spreadsheet_exist : 
-
+        if eclipse_data_csv : 
+            eclipse_data_csv=eclipse_data_csv[0]
             #time_format="%Y-%m-%d %H:%M:%S"
             eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, verbose=verbose)
 
@@ -636,11 +703,14 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
                                                          eclipse_time_trio["one_day_before_end_time"])
             eclipse_files=get_files_between_times(recording_files, eclipse_time_trio["eclipse_start_time"], 
                                                   eclipse_time_trio["eclipse_end_time"])
-
+            eclipse_year=str(eclipse_time_trio["eclipse_start_time"].year)
+            eclipse_start_str=eclipse_time_trio["eclipse_start_time"].strftime("%Y-%B-%d_%H%M%S")+"UTC".replace(" ", "")
+            one_day_before_str=eclipse_time_trio["one_day_before_start_time"].strftime("%Y-%B-%d_%H%M%S")+"UTC".replace(" ", "")
+            two_days_before_str=eclipse_time_trio["two_days_before_start_time"].strftime("%Y-%B-%d_%H%M%S")+"UTC".replace(" ", "")
             eclipse_date_str=eclipse_info["FirstContactDate"]
             if eclipse_files: 
                 if verbose: print("youtube_folder= "+youtube_folder)
-                clip_basename="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_eclipse_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+eclipse_start_str+"_eclipse_3minute"
                 clip_title=clip_basename.replace('_', ' ')
                 if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
@@ -672,7 +742,7 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
             if two_days_before_files :
                 eclipse_type="Non-Eclipse-Day"
                 if verbose: print("youtube_folder= "+youtube_folder)
-                clip_basename="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_two_days_before_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+two_days_before_str+"_two_days_before_3minute"
                 clip_title=clip_basename.replace('_', ' ')
                 if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
@@ -704,7 +774,7 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
 
             if one_day_before_files: 
                 eclipse_type="Non-Eclipse-Day"
-                clip_basename="ESID#"+str(ESID)+"_"+eclipse_type+"_"+eclipse_date_str+"_one_day_before_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+one_day_before_str+"_one_day_before_3minute"
                 clip_title=clip_basename.replace('_', ' ')
                 if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
@@ -1124,7 +1194,7 @@ def get_youtube_link(stdout, verbose=False):
     if verbose: print("match_link type = "+type(match_link))
 
     if match_link:
-        video_id = match.group(1)
+        video_id = match_link.group(1)
         video_id.replace("'", "")
         video_id.strip()
         return_value="https://youtu.be/"+video_id
@@ -1134,3 +1204,46 @@ def get_youtube_link(stdout, verbose=False):
         if verbose: print("No Video ID found.")
 
     return return_value
+
+def calc_psd(input, fs_in, Bartlett=False):
+    """
+    Calcute the power spectral density of an array or the contents of a wav file
+
+    Parameters:
+    input (str or array): If input is a string then the code will assume that it is a path to a .WAV file.  
+                            If not the code will generate an error. [Not yet implemented]
+                        If input is an array then the code will interpret it as the data array from a .WAV file.
+
+    fs (float): The path to the folder.
+    Bartlett (any): If Bartlett != False then noverlap=0 which will compute the PSD using Bartlett's method. 
+                    Default is False which uses Welch's method. 
+    
+    Returns:
+    freqs_out (array): Array of Frequencies
+    Pxx_den   (array): Power Spectral density as a function of frequency. [V**2/Hz]
+    """
+
+    if Bartlett:
+         noverlap=0
+    else: noverlap=None
+
+    freqs_out, Pxx_den=scipy.signal.welch(
+          input,                #Data array read in from .WAV file
+          fs=fs_in,         #Frequency sampling  read in from .WAV file
+          window='hann',	#Use a Hann window for filtering. Default 
+          nperseg=None, 	#Length of each segment.  None allows the default
+          noverlap=noverlap,    # None sets the number of overlapping points to noverlap = 
+                            #nperseg // 2  
+          nfft=None,		#If None, the FFT length is nperseg. Default
+          detrend='constant',	#Default
+          return_onesided=True,	#If True, return a one-sided spectrum for real data. No 
+                                #complex components.
+          scaling='density', 	#Set to power spectral density Pxx[V**2/Hz] instead of the
+                                #squared magnitude spectrum Pxx[V**2]           
+          axis=-1,          #Axis along which the periodogram is computed; the default is 
+                            #over the last axis (i.e. axis=-1).
+          average='mean'    #Method to use when averaging periodograms.  Default.
+          )
+    
+    return freqs_out, Pxx_den
+    

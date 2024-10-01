@@ -4,10 +4,11 @@ import os
 
 import glob
 #####################################################
-top_dir="/media/tracy/ESCSPA00/Annular_DATA/"
+#top_dir="/media/tracy/ESCSPA00/Annular_DATA/"
+top_dir="/media/tracy/ESCSPA00/Annular_Analysis_Data/"
 #top_dir="/Volumes/Austrian/Annular_DATA/"
 
-youtube_folder=top_dir+"YouTube/"
+youtube_folder=top_dir+"YouTube_Queue/"
 
 verbose=1
 ####################################################
@@ -22,6 +23,7 @@ ESIDS=['014']
 #        folders.append(folder)
 #    print(ESID)
 folders=glob.glob(os.path.join(top_dir,"*_Split"))
+print(len(folders))
 escsp_make_clips(folders, youtube_folder, verbose=verbose)
 
 

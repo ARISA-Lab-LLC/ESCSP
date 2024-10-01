@@ -14,7 +14,7 @@ from escsp import *
 #    --description="Had fun surfing in Santa Cruz" --keywords="surfing,Santa Cruz" --category="22" --privacyStatus="private"
 #top_dir="/Volumes/Austrian/Dropbox/programs/ESCSP_Data/"
 #top_dir="/media/tracy/Soundscape1/Annular_DATA/"
-top_dir="/media/tracy/ESCSPA00/Annular_DATA/"
+top_dir="/media/tracy/ESCSPA00/Annular_Analysis_Data/"
 #top_dir="/media/tracy/ESCSPA01/Total_Analysis_Data/"
 youtube_in_basename="YouTube_Queue"
 youtube_folder=os.path.join(top_dir,youtube_in_basename)
@@ -28,6 +28,10 @@ verbose=1
 #upload_csv_files.remove(upload_csv_files[0])
 #out_info=[]
 if verbose : print(len(upload_csv_files)) 
+
+#Upload 45 videos at a time to stay within YouTube limits.
+if len(upload_csv_files) > 48:
+    upload_csv_files=upload_csv_files[0:47]
 
 for upload_csv_file in upload_csv_files : 
 
@@ -75,16 +79,19 @@ for upload_csv_file in upload_csv_files :
         if link !=None:
 
 
-            out_info={
-                "stdout":result.stdout,
-                "stderr":result.stderr,
-                "link":link
-                }
-            out_info_df=pd.DataFrame([out_info])
-            df=df.join(df, out_info_df)
-            output_file_path = os.path.join(youtube_folder_out,'YoutTube_output.csv')
+            #out_info={
+            #    "stdout":result.stdout,
+            #    "stderr":result.stderr,
+            #    "link":link
+            #    }
+            #out_info_df=pd.DataFrame([out_info])
+            #df=df.join(df, out_info_df)
+            df=df.assign(stdout=result.stdout)
+            df=df.assign(stderr=result.stderr)
+            df=df.assign(Youtube_link=link)
+            output_file_path = os.path.join(youtube_folder_out,'YouTube_output.csv')
             if os.path.exists(output_file_path):
-                out_info_df.to_csv(output_file_path,  mode='a', index=False, header=False)
+                df.to_csv(output_file_path,  mode='a', index=False, header=False)
             else:
                 df.to_csv(output_file_path, index=False)
 
