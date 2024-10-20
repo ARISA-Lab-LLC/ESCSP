@@ -6,9 +6,6 @@ if __name__ == "__main__":
 #Import Libraries section
 import numpy as np 
 # for visualizing the data 
-# for opening the media file 
-import scipy.io.wavfile as wavfile
-import wave
 #file handling and misc.
 import os  
 import datetime
@@ -20,10 +17,14 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import matplotlib.gridspec as gridspec
 import subprocess
-#import moviepy
 from tracemalloc import stop
+# for opening the media file 
+import scipy.io.wavfile as wavfile
+import wave
 from scipy.misc import derivative
+from scipy.interpolate import interp1d
 import copy
+#import moviepy
 from moviepy.editor import *
 import re
 import scipy
@@ -48,36 +49,35 @@ def mk_eclipse_data_csv(folder):
                            "Eclipse Type",
                            "Total Eclipse Start UTC", 
                            "Total Eclipse End UTC",
-                           "Max Eclipse Time UTC", 
-              "Upload Round",
-              "Unusable Data 1 = Unusable",
-              "Manually Add ES ID# to Raw Data Upload 1 = Need to Do",
-              "Audio Data YouTube Link", 
-              "Not filtered (All frequencies), 4/6/2024 PSD",
-              "Not filtered (All frequencies), 4/7/2024 PSD",
-              "Not filtered (All frequencies), Average PSD of 4/6 & 4/7",
-              "Not filtered (All frequencies), 4/8/2024 PSD",
-              "Not filtered (All frequencies), Standard Deviation (Average vs Eclipse)",
-              "Filtered (Cricket frequency), 4/6/2024 PSD",
-              "Filtered (Cricket frequency), 4/7/2024 PSD",
-              "Filtered (Cricket frequency), Average PSD of 4/6 & 4/7",
-              "Filtered (Cricket frequency), eclipse 4/8/2024 PSD",
-              "Filtered (Cricket frequency), Standard Deviation (Average vs Eclipse)"
-                           
-                           ]].copy()
-
-
-
-         
+                           "Max Eclipse Time UTC",
+                           "Upload Round",
+                           "Unusable Data 1 = Unusable",
+                           "Manually Add ES ID# to Raw Data Upload 1 = Need to Do",
+                           "Audio Data YouTube Link",
+                           "Not filtered (All frequencies), 4/6/2024 PSD",
+                           "Not filtered (All frequencies), 4/7/2024 PSD",
+                           "Not filtered (All frequencies), Average PSD of 4/6 & 4/7",
+                           "Not filtered (All frequencies), 4/8/2024 PSD",
+                           "Not filtered (All frequencies), Standard Deviation (Average vs Eclipse)",
+                           "Filtered (Cricket frequency), 4/6/2024 PSD",
+                           "Filtered (Cricket frequency), 4/7/2024 PSD",
+                           "Filtered (Cricket frequency), Average PSD of 4/6 & 4/7",
+                           "Filtered (Cricket frequency), eclipse 4/8/2024 PSD",
+                           "Filtered (Cricket frequency), Standard Deviation (Average vs Eclipse)"                  
+                           ]].copy()  
          
     else: 
          print("mk_eclipse_data_csv")
          print(folder+" is not a folder")
      
 def get_audio_start_info(files, file_type="AudioMoth", verbose=None):
-    """ Return recording start information for a wave file based on the filename. 
+    """ 
+    Return recording start time information for a wave file based on the filename. 
     Start time and date returned using datetime format.
-    NPS Files return: start_time, start_date, site_name """
+    NPS Files return: start_time, start_date, site_name 
+    
+    
+    """
     print("Here 1")
     for file in files:
         #Get the filename
@@ -159,26 +159,66 @@ def read_escsp_setup():
 
     return escsp_info
 
-def escsp_read_eclipse_csv(eclipse_data_csv, verbose=None):
-    """"""
-    if os.path.isfile(eclipse_data_csv) :
-        df=pd.read_csv(eclipse_data_csv, header=[0])
-        time_format="%Y-%m-%d %H:%M:%S"
-        if verbose: print("success! " + eclipse_data_csv) 
-        #Doing in this way instead of using df.to_dict to make a simpler dictionary
-        eclipse_info={"ESID": str(df["ESID"][0]).zfill(3), 
-                  "Latitude":df["Latitude"][0], 
-                  "Longitude" :df["Longitude"][0],
-                  "Eclipse_type" :df["LocalType"][0], 
-                  "CoveragePercent" :df["CoveragePercent"][0], 
-                  "FirstContactDate" :df["FirstContactDate"][0], 
-                  "FirstContactTimeUTC" :df["FirstContactTimeUTC"][0], 
-                  "SecondContactTimeUTC" :df["SecondContactTimeUTC"][0], 
-                  "ThirdContactTimeUTC" :df["ThirdContactTimeUTC"][0], 
-                  "FourthContactTimeUTC" :df["FourthContactTimeUTC"][0], 
-                  "MaxEclipseTimeUTC" :df["TotalEclipseTimeUTC"][0] }
+def escsp_read_eclipse_csv(eclipse_data_csv, verbose=None, ESID=False):
+    """
+    Extracts the row from a CSV file where the 'AudioMoth ES ID Number' matches a given string,
+    and returns the columns as a dict 
 
-    else: print('Error! No file named '+eclipse_data_csv)
+    Args:
+    - csv_file (str): Path to the CSV file.
+    - esid_string (str): The ESID string to match.
+    
+    Returns:
+    - eclipse_info (dict): A ditionary containing the matching row(s), or None alse if no match is found."""
+    eclipse_info=None
+    df=None
+
+    if os.path.isfile(eclipse_data_csv) :
+        if verbose: print("escsp_read_eclipse_csv success! " + eclipse_data_csv) 
+        if verbose:
+            print("Type ESID= "+str(type(ESID)))
+            print("ESID= "+str(ESID))
+        if ESID:
+            if type(ESID) == type('a'):
+                if verbose: print("ESID is of string type= "+ESID) 
+            else:
+                print("esid was not a string attempting to fix.")
+                print("esid was= "+str(ESID)+", "+type(ESID).__name__)
+                ESID=str(ESID).zfill(3)
+                print("esid_string now= "+ESID)
+
+    # Read the CSV file into a DataFrame
+            df = extract_row_by_esid(eclipse_data_csv, esid_string=ESID, verbose=verbose)
+            if verbose: 
+                print("Type df= "+str(type(df)))
+        else:
+            df=pd.read_csv(eclipse_data_csv, header=[0])
+        #Doing in this way instead of using df.to_dict to make a simpler dictionary
+        verbose=1
+        if verbose: 
+            if  type(df).__name__ =='DataFrame'  :
+                print("Data frame column names (keys):")
+                print(df.columns)
+            else:  print("df for ESID "+str(ESID)+" is None")
+        if  type(df).__name__ =='DataFrame'  :
+            eclipse_info={
+                "ESID": str(df['AudioMoth ES ID Number'].values[0]).zfill(3), 
+                "Latitude":df["Latitude"].values[0], 
+                "Longitude" :df["Longitude"].values[0],
+                "Eclipse_type" :df["LocalType"].values[0], 
+                "CoveragePercent" :df["CoveragePercent"].values[0], 
+                "FirstContactDate" :df["FirstContactDate"].values[0], 
+                "FirstContactTimeUTC" :df["FirstContactTimeUTC"].values[0], 
+                "SecondContactTimeUTC" :df["SecondContactTimeUTC"].values[0], 
+                "ThirdContactTimeUTC" :df["ThirdContactTimeUTC"].values[0], 
+                "FourthContactTimeUTC" :df["FourthContactTimeUTC"].values[0], 
+                "MaxEclipseTimeUTC" :df["TotalEclipseTimeUTC"].values[0]
+                }
+        else:
+            print("ESID not found.")
+
+    else:
+        print('Error! No file named '+eclipse_data_csv)
 
     return eclipse_info
 
@@ -220,7 +260,9 @@ def escsp_get_eclipse_time_trio(eclipse_info, verbose=None):
     return eclipse_time_trio
     
 def filename_2_datetime(files, file_type="AudioMoth", verbose=False):
-    """ Return a list if datetimes that correspond to the name of a WAV file"""
+    """ 
+    Return a list if datetimes that correspond to the name of a WAV file
+    """
     if verbose : print("Here 1")
     if type(files) == type('a'): files=[files]
     date_times=None
@@ -380,60 +422,90 @@ def filename_2_ESID(file, verbose=False):
          if verbose: print("No ESID digits found.")
              
    
-    return esid
+    return str(esid).zfill(3)
 
-
-def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", verbose=False):
+def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", verbose=False, eclipse_data_csv=False):
+    if verbose: print("eclipse_data_csv = "+eclipse_data_csv)
     if verbose: print(folder)
     ESID=filename_2_ESID(folder)
     if verbose: print("ESID #=" + ESID)
-    plot_1_name=os.path.join(plots_folder, "PSD_plot_"+ESID+".png")
+    plot_1_name=os.path.join(plots_folder, "PSD_plot_Welch"+ESID+".png")
     if verbose: print("plot_1_name= "+plot_1_name)
-    plot_1a_name=os.path.join(plots_folder, "PSD_plot_"+ESID+".png")
+    plot_1a_name=os.path.join(folder, "PSD_plot_Welch"+ESID+".png")
 
-    #Welch plots
-    plot_2a_name=os.path.join(plots_folder, "PSD_Welch_plot_"+ESID+".png")
+    #Welch and Ba rtlet plots
+    plot_2a_name=os.path.join(plots_folder, "PSD_W_and_B_plot_"+ESID+".png")
     if verbose: print("plot_2a_name (Welch)= "+plot_2a_name)
     plot_2b_name=os.path.join(plots_folder, "PSD_Bartlett_plot_"+ESID+".png")
     if verbose: print("plot_2b_name (Bartlett)= "+plot_2b_name)
-
-
-    eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
-
+    #Eclipse Day over average plots
+    plot_3a_name=os.path.join(plots_folder, "PSD_Average_plot_"+ESID+".png")
+    if verbose: print("plot_3a_name (Average)= "+plot_3a_name)
+    plot_3b_name=os.path.join(folder, "PSD_Average_plot_"+ESID+".png")
+    if verbose: print("plot_3b_name (Average)= "+plot_3b_name)
+    #Eclipse Day over average plots in the cricket frequencies
+    plot_4a_name=os.path.join(plots_folder, "PSD_Average_plot_"+ESID+"_2-6_kHz.png")
+    if verbose: print("plot_4a_name (Average)= "+plot_4a_name)
+    plot_4b_name=os.path.join(folder, "PSD_Average_plot_"+ESID+"_2-6_kHz.png")
+    if verbose: print("plot_4b_name (Average)= "+plot_4b_name)
+    ###########################################################################
+    out_text=str(ESID).zfill(3)+",,,,,,,,,,,,\n"
+    ###########################################################################
+    #Need to change this to an if statement after testing
+    #eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
 
     if os.path.isfile(eclipse_data_csv) :
-        df=pd.read_csv(eclipse_data_csv, header=[0])
+        eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, ESID=ESID, verbose=verbose)
+        if verbose: print(eclipse_info)
+        df=pd.DataFrame(eclipse_info, index=[0])
+        #df=pd.read_csv(eclipse_data_csv, header=[0])
         time_format="%Y-%m-%d %H:%M:%S"
         if verbose: print("success! " + eclipse_data_csv) 
-        if type(df["SecondContactTimeUTC"].values[0]) == type("test"):
+        
+        test=True
+        if type(df["SecondContactTimeUTC"].values[0]) != type("test"):
+            test=False
+        eclipse_local_type= df['Eclipse_type'].values[0]
+        if eclipse_local_type == "NaN":
+            test=False
+        if eclipse_local_type != "Annular" or eclipse_local_type != "Total": 
+            test=False
+
+
+        if test :
         #if eclipse_type == "Annular" or eclipse_type == "Total":
-#set the eclipse start time
+        ###########################################################################
+            #set the eclipse start time
             chars_to_remove=["\"", "\'", "[", "]"]
             second_contact=str(df["FirstContactDate"].values[0]+" "+df["SecondContactTimeUTC"].values[0])
             for char_to_remove in chars_to_remove:
                 second_contact.replace(char_to_remove, '')
             print(second_contact)
         #eclipse_start_time = datetime.datetime(2023, 10, 14, 17, 34) 
-            eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
-#set the eclipse end time
+            eclipse_start_time = datetime.datetime.strptime(second_contact, time_format)
+        ########################################################################### 
+            #set the eclipse end time
         #eclipse_end_time = datetime.datetime(2023, 10, 14, 17, 39)
             third_contact = str(df["FirstContactDate"].values[0]+" "+df["ThirdContactTimeUTC"].values[0])
+            ###########################################################################
+            #
             for char_to_remove in chars_to_remove:
                 third_contact.replace(char_to_remove, '')
             eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
         else:
             max_eclipse=datetime.datetime.strptime(
-                df["FirstContactDate"].values[0]+ " " + df["TotalEclipseTimeUTC"].values[0], time_format)
+                df["FirstContactDate"].values[0]+ " " + df["MaxEclipseTimeUTC"].values[0], time_format)
             eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
             eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
-
+        ########################################################################### 
+        #
         two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
         two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
 
         one_day_before_start_time=eclipse_start_time-datetime.timedelta(hours=24)   
         one_day_before_end_time=eclipse_end_time-datetime.timedelta(hours=24)
-
-#Get all of the recording files at the site
+        ###########################################################################
+        #Get all of the recording files at the site
         recording_files=glob.glob(os.path.join(folder,"*."+"WAV"))
         if verbose: print(len(recording_files))   
 
@@ -442,21 +514,24 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
         two_days_before_files=None
         one_day_before_files=None                      
 
-        fs_ecl_wel=None
-        fs_odb_wel=None
-        fs_tdb_wel=None                     
+        freqs_out_ecl_wel=None
+        freqs_out_odb_wel=None
+        freqs_out_tdb_wel=None                     
 
-        fs_ecl_bart=None
-        fs_odb_bart=None
-        fs_tdb_bart=None
+        freqs_out_ecl_bart=None
+        freqs_out_odb_bart=None
+        freqs_out_tdb_bart=None
+        ###########################################################################
+        #This comes in handy when testing to see if an object is of array type
         test_arr=np.ndarray(shape=(2,2), dtype=float, order='F')
-        
+        ###########################################################################
+        #Gather all if the .WAV files within the time frame of the eclipse
         two_days_before_files=get_files_between_times(recording_files, two_days_before_start_time, two_days_before_end_time)     
         one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
         eclipse_files=get_files_between_times(recording_files, eclipse_start_time, eclipse_end_time)
 
-
-#IF the filelist parameter is set, then write the names of the files to the filelst file.  
+        ###########################################################################
+        #IF the filelist parameter is set, then write the names of the files to the filelst file.  
         if filelist:
             if os.path.isfile(filelist):
                 list_file=filelist
@@ -464,7 +539,7 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
                 list_file=os.path.join(folder, ESID+'_Analysis_Files.csv')
             
             if eclipse_files:
-                df_=pd.DataFrame({'Eclipse Files': eclipse_files}) 
+                df=pd.DataFrame({'Eclipse Files': eclipse_files}) 
                 if two_days_before_files:
                     df.insert(1, 'Two Days Before Files', two_days_before_files, True)
                 else: df=pd.DataFrame({'Two Days Before Files': ["None"]}) 
@@ -476,82 +551,233 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
                 df=pd.DataFrame({'Eclipse Files': ["None"]})    
             
             df.to_csv(list_file, index=False)
-
+        ###########################################################################
+        #If there are are any .WAV files within the eclipse time on the eclipse day
+        # then continue
         if eclipse_files: 
             eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
             #f0, eclipse_psd=scipy.signal.periodogram(eclipse_wav, fs_ecl)
             fig, ax =plt.subplots()
             ax.psd(eclipse_wav, Fs=fs_ecl, color="orange", label="Eclipse Day")
-            fs_ecl_wel, eclipse_wav_psd_welch=calc_psd(eclipse_wav, fs_ecl)
-            fs_ecl_bart, eclipse_wav_psd_bart=calc_psd(eclipse_wav, fs_ecl, Bartlett=True)
+            plt.title("PSD Welch's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
+            freqs_out_ecl_wel, eclipse_wav_psd_welch=calc_psd(eclipse_wav, fs_ecl)
+            freqs_out_ecl_bart, eclipse_wav_psd_bart=calc_psd(eclipse_wav, fs_ecl, Bartlett=True)
 
-
+            ###########################################################################
+            #If there are are any .WAV files within the eclipse time two days before the eclipse
+            # then do this part
             if two_days_before_files :
                 print("Length of filelist: " + str(len(two_days_before_files)))
                 two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
                 #f2, two_days_before_psd=scipy.signal.periodogram(two_days_before_wav, fs_tdb)
                 ax.psd(two_days_before_wav, Fs=fs_tdb, color="green", label="Two Days Before")
-                fs_tdb_wel, tdb_wav_psd_welch=calc_psd(two_days_before_wav, fs_tdb)
-                fs_tdb_bart, tdb_wav_psd_bart=calc_psd(two_days_before_wav, fs_tdb, Bartlett=True)
-
+                freqs_out_tdb_wel, tdb_wav_psd_welch=calc_psd(two_days_before_wav, fs_tdb)
+                freqs_out_tdb_bart, tdb_wav_psd_bart=calc_psd(two_days_before_wav, fs_tdb, Bartlett=True)
+            ###########################################################################
+            #If there are are any .WAV files within the eclipse time one day before the eclipse
+            # then continue
             if one_day_before_files: 
                 one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files, verbose=verbose)
                 #f1, one_day_before_psd=scipy.signal.periodogram(one_day_before_wav, fs_odb)
                 ax.psd(one_day_before_wav, Fs=fs_odb, color="blue", label="One Day Before")
-                fs_odb_wel, odb_wav_psd_welch=calc_psd(one_day_before_wav, fs_odb)
-                fs_odb_bart, odb_wav_psd_bart=calc_psd(one_day_before_wav, fs_odb, Bartlett=True)
+                freqs_out_odb_wel, odb_wav_psd_welch=calc_psd(one_day_before_wav, fs_odb)
+                freqs_out_odb_bart, odb_wav_psd_bart=calc_psd(one_day_before_wav, fs_odb, Bartlett=True)
 
-
-                legend = ax.legend(loc='upper center', shadow=True, fontsize='large')
-                plt.savefig(plot_1_name)
-                if verbose: print("Saved file "+plot_1_name)    
-                plt.savefig(plot_1a_name)
-                if verbose: print("Saved file "+plot_1a_name)
-                plt.close(fig)
-
+            ###########################################################################
+            #create the legend and the plots.  This indentation ensures that the plot will 
+            # be made, even if there are only eclipse files        
+            legend = ax.legend(loc='upper center', shadow=True, fontsize='large')
+            plt.savefig(plot_1_name)
+            if verbose: print("Saved file "+plot_1_name)    
+            plt.savefig(plot_1a_name)
+            if verbose: print("Saved file "+plot_1a_name)
+            plt.close(fig)
+        ###########################################################################
         #Make Plots of the Welch PSD
-
-        
-        if type(fs_ecl_wel) == type(test_arr):
+        if type(freqs_out_ecl_wel) == type(test_arr):
 
             plt.figure()
-            plt.title("PSD Welch's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
-            plt.semilogy(fs_ecl_wel, eclipse_wav_psd_welch,color="orange", label="Eclipse Day")
-            
-            if type(fs_odb_wel) == type(test_arr):
-                 plt.semilogy(fs_odb_wel, odb_wav_psd_welch, color="blue", label="One Day Before")
-            if type(fs_tdb_wel) == type(test_arr):
-                 plt.semilogy(fs_tdb_wel, tdb_wav_psd_welch, color="green", label="Two Days Before")
+            plt.title("PSD Welch's & Bartlett's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
+            plt.semilogy(freqs_out_ecl_wel, eclipse_wav_psd_welch,color="orange", label="W. Eclipse Day")
+            if type(freqs_out_odb_wel) == type(test_arr):
+                 plt.semilogy(freqs_out_odb_wel, odb_wav_psd_welch, color="blue", label="W. One Day Before")
+            if type(freqs_out_tdb_wel) == type(test_arr):
+                 plt.semilogy(freqs_out_tdb_wel, tdb_wav_psd_welch, color="green", label="W. Two Days Before")
+            ###########################################################################
+            #create the legend and the plots.  This indentation ensures that the plot will 
+            # be made, even if there are only eclipse files
+            #plt.xlabel('frequency [Hz]')
+            #plt.ylabel('PSD [V**2/Hz]')
+            #plt.legend(loc='upper center', shadow=True, fontsize='large')
+
+            #plt.savefig(plot_2a_name)
+            #if verbose: print("Saved file "+plot_2a_name)
+            #plt.close(fig)
+        ##########################################################################    
+        #Make Plots of the Bartlett PSD
+        if type(freqs_out_ecl_bart) == type(test_arr):
+            #plt.figure()
+            #plt.title("PSD Bartlett's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
+            plt.scatter(freqs_out_ecl_bart, eclipse_wav_psd_bart,color="orange", 
+                        label="B. Eclipse Day", marker='D')  # 'D' specifies diamond shape
+            if type(freqs_out_odb_bart) == type(test_arr):
+                 plt.scatter(freqs_out_odb_bart, odb_wav_psd_bart, color="blue", 
+                             label="B. One Day Before", marker='D')  # 'D' specifies diamond shape
+            if type(freqs_out_tdb_bart) == type(test_arr):
+                 plt.scatter(freqs_out_tdb_bart, tdb_wav_psd_bart, color="green", 
+                             label="B. Two Days Before", marker='D')  # 'D' specifies diamond shape
+            ###########################################################################
+            #create the legend and the plots.  This indentation ensures that the plot will 
+            # be made, even if there are only eclipse files
             plt.xlabel('frequency [Hz]')
             plt.ylabel('PSD [V**2/Hz]')
             plt.legend(loc='upper center', shadow=True, fontsize='large')
-
+            
+            #plt.savefig(plot_2b_name)
+            #if verbose: print("Saved file "+plot_2b_name)
             plt.savefig(plot_2a_name)
             if verbose: print("Saved file "+plot_2a_name)
             plt.close(fig)
-            
-        #Make Plots of the Bartlett PSD
-        if type(fs_ecl_bart) == type(test_arr):
+
+        ###########################################################################
+        #Calculate and plot the Average PSD on non-eclipse days with error bars
+        #You need both one day before data and two day before data to calculate this.
+        #Need to test against an array because the truth value of an array with more 
+        # than one element is ambiguous. 
+        if type(freqs_out_odb_bart) == type(test_arr) and type(freqs_out_tdb_bart) == type(test_arr) :
+            interp_freqs, avg_psd, avg_psd_std=compute_average_and_std(
+                 freqs_out_odb_wel, odb_wav_psd_welch, 
+                 freqs_out_tdb_wel, tdb_wav_psd_welch)
+            # Plot the with error bars
+
+            # Calculate twice the standard error
+            twice_standard_error = 2.0 * avg_psd_std
 
             plt.figure()
-            plt.title("PSD Bartlett's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
-            plt.semilogy(fs_ecl_bart, eclipse_wav_psd_bart,color="orange", label="Eclipse Day")
-            if type(fs_odb_bart) == type(test_arr):
+            plt.title("Eclipse PSD and Avg PSD"+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
+            # Plot the average with standard deviation error bars
 
-                 plt.semilogy(fs_odb_bart, odb_wav_psd_bart, color="blue", label="One Day Before")
-            if type(fs_tdb_bart) == type(test_arr):
-                 plt.semilogy(fs_tdb_bart, tdb_wav_psd_bart, color="green", label="Two Days Before")
+            # Overplot twice the standard error
+            plt.errorbar(interp_freqs, avg_psd, yerr=twice_standard_error, fmt='o', label='Twice Standard Error',
+                         color='green', ecolor='blue', elinewidth=2, capsize=4,alpha=0.7)
+            
+            # Overplot  the standard error
+            plt.errorbar(interp_freqs, avg_psd, yerr=avg_psd_std, fmt='o', label='Average with Std Dev',
+                         color='green', ecolor='green', elinewidth=2, capsize=4, alpha=0.5)
+            
+            # Overlay the eclipse day data (freqs_out_ecl_wel, eclipse_wav_psd_welch) with a different style
+            plt.plot(freqs_out_ecl_wel, eclipse_wav_psd_welch, label='Eclipse Day', 
+                     color='orange', linewidth=2.5, linestyle='solid')
+            
+            # Set the y-axis to semilog scale
+            plt.yscale('log')
             plt.xlabel('frequency [Hz]')
             plt.ylabel('PSD [V**2/Hz]')
             plt.legend(loc='upper center', shadow=True, fontsize='large')
-
-            plt.savefig(plot_2b_name)
-            if verbose: print("Saved file "+plot_2b_name)
+            plt.savefig(plot_3a_name)
+            if verbose: print("Saved file "+plot_3a_name)
+            plt.savefig(plot_3b_name)
+            if verbose: print("Saved file "+plot_3b_name)
             plt.close(fig)
-            
+            ###########################################################################
+            #Plot the Average PSD on non-eclipse days with error bars and the eclipse 
+            # day PSD in the cricket frenquency range
+            plt.figure()
+            plt.title("Eclipse PSD and Avg PSD"+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
+            # Plot the average with standard deviation error bars
 
+            # Overplot twice the standard error
+            plt.errorbar(interp_freqs, avg_psd, yerr=twice_standard_error, fmt='o', label='Twice Standard Error',
+                         color='green', ecolor='blue', elinewidth=2, capsize=4,alpha=0.7)
+            
+            # Overplot  the standard error
+            plt.errorbar(interp_freqs, avg_psd, yerr=avg_psd_std, fmt='o', label='Average with Std Dev',
+                         color='green', ecolor='green', elinewidth=2, capsize=4, alpha=0.5)
+            
+            # Overlay the eclipse day data (freqs_out_ecl_wel, eclipse_wav_psd_welch) with a different style
+            plt.plot(freqs_out_ecl_wel, eclipse_wav_psd_welch, label='Eclipse Day', 
+                     color='orange', linewidth=2.5, linestyle='solid')
+            
+            # Set the y-axis to semilog scale
+            #plt.yscale('log')
+            #set the range for crickets [2 to 8 kHz]
+            plt.xlim(2000, 6000)
+            # Use np.where to find the indices of elements between x1 and x2 (inclusive)
+            indices1 = np.where((interp_freqs >= 2000) & (interp_freqs <= 6000))[0]
+            indices2 = np.where((freqs_out_ecl_wel >= 2000) & (freqs_out_ecl_wel <= 6000))[0]
+            ymin=.98*np.min([np.min(eclipse_wav_psd_welch[indices2]),
+                             np.min(avg_psd[indices1]-twice_standard_error[indices1])])
+            ymax=1.02*np.max([np.max(eclipse_wav_psd_welch[indices2]),
+                         np.max(avg_psd[indices1]+twice_standard_error[indices1])])
+            plt.ylim(ymin, ymax)
+            plt.xlabel('frequency [Hz]')
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.legend(loc='upper center', shadow=True, fontsize='large')
+            plt.savefig(plot_4a_name)
+            if verbose: print("Saved file "+plot_4a_name)
+            plt.savefig(plot_4b_name)
+            if verbose: print("Saved file "+plot_4b_name)
+            plt.close(fig)
+            ###########################################################################
+            #Calculate cricket frequency values
+            indices1 = np.where((freqs_out_odb_wel >= 2000) & (freqs_out_odb_wel <= 6000))[0]
+            indices2 = np.where((freqs_out_tdb_wel >= 2000) & (freqs_out_tdb_wel <= 6000))[0]
+            indices3 = np.where((freqs_out_ecl_wel >= 2000) & (freqs_out_ecl_wel <= 6000))[0]
+
+            integrated_psd_odb = np.trapz(odb_wav_psd_welch[indices1], 
+                                          freqs_out_odb_wel[indices1])
+            integrated_psd_tdb = np.trapz(tdb_wav_psd_welch[indices2], 
+                                          freqs_out_tdb_wel[indices2])
+            
+            # Calculate the average and standard deviation
+            average_V2 = (integrated_psd_odb + integrated_psd_tdb) / 2.0
+            V2_std = np.std([integrated_psd_odb, integrated_psd_tdb], axis=0)
+
+            integrated_psd_ecl = np.trapz(eclipse_wav_psd_welch[indices3], 
+                                          freqs_out_ecl_wel[indices3])
+            
+            diff=integrated_psd_ecl-average_V2
+            std_dev_diff=diff/V2_std
+            
+            ###########################################################################
+            #Calculate all frequency values
+            integrated_psd_odb_all = np.trapz(odb_wav_psd_welch, 
+                                          freqs_out_odb_wel)
+            integrated_psd_tdb_all = np.trapz(tdb_wav_psd_welch, 
+                                          freqs_out_tdb_wel)
+            
+            # Calculate the average and standard deviation
+            average_V2_all = (integrated_psd_odb_all + integrated_psd_tdb_all) / 2.0
+            V2_std_all = np.std([integrated_psd_odb_all, integrated_psd_tdb_all], axis=0)
+
+            integrated_psd_ecl_all = np.trapz(eclipse_wav_psd_welch, 
+                                          freqs_out_ecl_wel)
+            
+            diff_all=integrated_psd_ecl_all-average_V2_all
+            std_dev_diff_all=diff_all/V2_std_all
+            ###########################################################################
+            out_text=str(ESID).zfill(3)+"," #"ESID,"
+            out_text=out_text+str(integrated_psd_odb_all)+"," #"All Frequencies: 4/6/2024 V^2,
+            out_text=out_text+str(integrated_psd_tdb_all)+"," #All Frequencies: 4/7/2024 V^2,"
+            out_text=out_text+str(average_V2_all)+"," #"All Frequencies: Average V^2 of 4/6 & 4/7,"
+            out_text=out_text+str(V2_std_all)+"," #"All Frequencies: Standard Deviation 4/6 & 4/7,"
+            out_text=out_text+str(integrated_psd_ecl_all)+"," #"All Frequencies: Eclipse 4/8/2024 V^2,"	
+            out_text=out_text+str(std_dev_diff_all)+"," #"All Frequencies: Standard Deviation difference (Eclipse vs Average),"
+            out_text=out_text+str(integrated_psd_tdb)+"," #"Cricket Frequencies: 4/6/2024 PSD,"
+            out_text=out_text+str(integrated_psd_odb)+"," #"Cricket Frequencies: 4/7/2024 PSD,"
+            out_text=out_text+str(average_V2)+"," #"Cricket Frequencies: Average V^2 of 4/6 & 4/7,"
+            out_text=out_text+str(V2_std)+"," #"Cricket Frequencies: Standard Deviation 4/6 & 4/7,"
+            out_text=out_text+str(integrated_psd_ecl)+"," #"Cricket Frequencies: Eclipse 4/8/2024 V^2," 
+            out_text=out_text+str(std_dev_diff)#"Cricket Frequencies: Standard Deviation difference (Eclipse vs Average)") 
+            #out_text=out_text+
+            out_text=out_text+"\n"                  
+    ###########################################################################
+    #Can't do anything if there is no eclipse_data_csv file
     else:
         print("No file "+eclipse_data_csv+" found.")
+        out_text=str(ESID).zfill(3)+",,,,,,,,,,,,"+"\n"
+       
+    return out_text
 
 def escsp_mk_youtube_description(eclipse_info, Recording_Date,Recording_Start_Time,
                                  Recording_type, Photo_Credit,Photo_Description):
@@ -682,7 +908,7 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
         if eclipse_data_csv : 
             eclipse_data_csv=eclipse_data_csv[0]
             #time_format="%Y-%m-%d %H:%M:%S"
-            eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, verbose=verbose)
+            eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, verbose=verbose, ESID=ESID)
 
 
             eclipse_type=eclipse_info["Eclipse_type"]
@@ -942,7 +1168,7 @@ def split_wave_files(indir, outdir, duration=60, verbose=False):
                     end_sample = start_sample + samples_per_segment
         
                     if end_sample > total_samples:
-                                                                                                                            end_sample = total_samples
+                         end_sample = total_samples
         
                     segment_data = data[start_sample:end_sample]
         
@@ -989,7 +1215,6 @@ def datetime_2_filename(datetimeObj, AudioMoth=True):
     return filename_out      
 
 def Reports_1(folder, TOTAL=True, verbose=False, save=False):
-
 
     # Define the column headings
     if TOTAL:
@@ -1051,7 +1276,6 @@ def Reports_1(folder, TOTAL=True, verbose=False, save=False):
 
     #Get size of data in the folder in GB str(round(answer, 2))
     site_values[columns[2]]=str(round(get_folder_size_in_gb(folder),2))
-
     
     if site_values[columns[1]] == 1: 
          if AM_timestamp_set(folder) == True:
@@ -1122,7 +1346,7 @@ def Reports_1(folder, TOTAL=True, verbose=False, save=False):
 
     return df 
     
-def AM_timestamp_set(folder, verbose=False):
+def AM_timestamp_set(folder, verbose=False):    
     file_list = glob.glob(os.path.join(folder,"*."+"WAV"))
     """
     Split a large WAV file into segments and update the metadata.
@@ -1246,4 +1470,430 @@ def calc_psd(input, fs_in, Bartlett=False):
           )
     
     return freqs_out, Pxx_den
+
+def compute_average_and_std(x1, y1, x2, y2):
+    """
+    Compute the average and standard deviation of y-values for given x1, y1, x2, y2 arrays.
     
+    Args:
+    - x1, y1 (array-like): x and y values of the first dataset.
+    - x2, y2 (array-like): x and y values of the second dataset.
+    
+    Returns:
+    - x_avg (numpy array): Common x values.
+    - y_avg (numpy array): Average y values at x3.
+    - y_std (numpy array): Standard deviation of y values at x3.
+    """
+    # Find common x values using a union of x1 and x2
+    x_avg = np.union1d(x1, x2)
+
+    # Interpolate y-values for both datasets onto the common x3 values
+    interp_y1 = interp1d(x1, y1, kind='linear', fill_value='extrapolate')
+    interp_y2 = interp1d(x2, y2, kind='linear', fill_value='extrapolate')
+    
+    y1_interp = interp_y1(x_avg)
+    y2_interp = interp_y2(x_avg)
+    
+    # Calculate the average and standard deviation
+    y_avg = (y1_interp + y2_interp) / 2
+    y_std = np.std([y1_interp, y2_interp], axis=0)
+    
+    return x_avg, y_avg, y_std
+
+def compute_average_and_std_3_arrays(x1, y1, x2, y2, x3, y3):
+    """
+    Compute the average and standard deviation of y-values for given x1, y1, x2, y2, x3, y3 arrays.
+    
+    Args:
+    - x1, y1 (array-like): x and y values of the first dataset.
+    - x2, y2 (array-like): x and y values of the second dataset.
+    - x3, y3 (array-like): x and y values of the third dataset.
+    
+    Returns:
+    - x_avg (numpy array): Common x values.
+    - y_avg (numpy array): Average y values at x_avg.
+    - y_std (numpy array): Standard deviation of y values at x_avg.
+    """
+    # Find common x values using a union of x1, x2, and x3
+    x_avg = np.union1d(np.union1d(x1, x2), x3)
+
+    # Interpolate y-values for all three datasets onto the common x_avg values
+    interp_y1 = interp1d(x1, y1, kind='linear', fill_value='extrapolate')
+    interp_y2 = interp1d(x2, y2, kind='linear', fill_value='extrapolate')
+    interp_y3 = interp1d(x3, y3, kind='linear', fill_value='extrapolate')
+    
+    y1_interp = interp_y1(x_avg)
+    y2_interp = interp_y2(x_avg)
+    y3_interp = interp_y3(x_avg)
+    
+    # Calculate the average and standard deviation
+    y_avg = (y1_interp + y2_interp + y3_interp) / 3
+    y_std = np.std([y1_interp, y2_interp, y3_interp], axis=0)
+    
+    return x_avg, y_avg, y_std
+
+def extract_row_by_esid(csv_file, esid_string=False , verbose=False):
+    """
+    Extracts the row from a CSV file where the 'AudioMoth ES ID Number' matches a given string.
+    
+    Args:
+    - csv_file (str): Path to the CSV file.
+    - esid_string (str): The ESID string to match.
+    
+    Returns:
+    - pd.DataFrame: A DataFrame containing the matching row(s), or False if no match is found.
+    """
+    matching_row=None
+
+    if verbose: 
+        print("csv file= "+csv_file)
+    if type(esid_string) != type('a'):
+        print("esid_string was not a string attempting to fix.")
+        print("esid_string was= "+str(esid_string)+", "+type(esid_string).__name__)
+        esid_string=str(esid_string).zfill(3)
+        print("esid_string now= "+esid_string)
+    else: 
+        print("ESID#= "+esid_string)
+    if esid_string.lower() != "none":
+    # Read the CSV file into a DataFrame
+        if os.path.isfile(csv_file) and esid_string != False and esid_string != None:
+            df = pd.read_csv(csv_file)
+            if type(df).__name__ == 'DataFrame':
+                if verbose: 
+                    print("Type df= "+str(type(df)))
+                    print(df.columns)
+                    print(esid_string)
+    # Search for rows where 'AudioMoth ES ID Number' matches the input string
+                if (df['AudioMoth ES ID Number'].values == esid_string).any() :
+                    matching_row = df.loc[df['AudioMoth ES ID Number'].values == esid_string]
+            #matching_row = df[df['AudioMoth ES ID Number'].values[0] == esid_string]
+                else:
+                    if (df['AudioMoth ES ID Number'].values == int(esid_string)).any(): 
+                        matching_row = df.loc[df['AudioMoth ES ID Number'].values == int(esid_string)]
+            #matching_row = df[df['AudioMoth ES ID Number'].values[0] == int(esid_string)]
+            
+            else:
+                print("Type df= "+str(type(df)))
+                print("No Matching ESID found for "+str(esid_string)+" in extract_row_by_esid.")
+
+        print("not a valid esid: "+str(esid_string)+".")
+            
+    
+    return matching_row
+
+def Reports_2(folder, eclipse_data_csv=None, TOTAL=True, verbose=False, save=False):
+
+    ESID=filename_2_ESID(folder)
+
+    # Define the column headings
+    if TOTAL:
+        columns = [
+             "ESID #", 
+             "Config file Present = No, 1 = yes",
+             "GB of data", 
+             "AM Timestamp Set",
+             "Eclipse Type",
+             "Three Days of Data Recorded? @ eclipse time (Two days before and Eclipse Day 0 = No, 1 = yes)",
+             "April 6, 2024 Data @ eclipse time (0 = No, 1 = yes)",
+             "April 7, 2024 Data @ eclipse time (0 = No, 1 = yes)",
+             "April 8, 2024 Data @ eclipse time (0 = No, 1 = yes)", 
+             "April 9, 2024 Data @ eclipse time (0 = No, 1 = yes)",
+             "April 10, 2024 Data  @ eclipse time (0 = No, 1 = yes)", 
+             "April 11, 2024 Data  @ eclipse time (0 = No, 1 = yes)"
+             ]
+        
+        dates=[
+             "2024, 4, 6, 0", "2024, 4, 6, 23",
+             "2024, 4, 7, 0", "2024, 4, 7, 23",
+             "2024, 4, 8, 0", "2024, 4, 8, 23",
+             "2024, 4, 9, 0", "2024, 4, 9, 23",
+             "2024, 4, 10, 0", "2024, 4, 10, 23",
+             "2024, 4, 11, 0", "2024, 4, 11, 23"
+             ]
+    else:          
+        columns = [
+             "ESID #", 
+             "Config file Present = No, 1 = yes",
+             "GB of data", 
+             "AM Timestamp Set",
+             "Eclipse Type",
+             "Three Days of Data Recorded? @ eclipse time (Two days before and Eclipse Day 0 = No, 1 = yes)",
+             "October 12, 2023 Data @ eclipse time (0 = No, 1 = yes)",
+             "October 13, 2023 Data @ eclipse time (0 = No, 1 = yes)",
+             "October 14, 2023 Data  @ eclipse time (0 = No, 1 = yes)", 
+             "October 15, 2023 Data  @ eclipse time (0 = No, 1 = yes)",
+             "October 16, 2023 Data  @ eclipse time (0 = No, 1 = yes)", 
+             "October 17, 2023 Data  @ eclipse time (0 = No, 1 = yes)"
+             ]
+        
+        dates=[
+             "2023, 10, 12, 0", "2023, 10, 12, 23",
+             "2023, 10, 13, 0", "2023, 10, 13, 23",
+             "2023, 10, 14, 0", "2023, 10, 14, 23",
+             "2023, 10, 15, 0", "2023, 10, 15, 23",
+             "2023, 10, 16, 0", "2023, 10, 16, 23",
+             "2023, 10, 17, 0", "2023, 10, 17, 23"
+             ]
+
+    #Get ESID #
+    site_values={columns[0] : filename_2_ESID(folder)}
+
+    #Is there a CONFIG.TXT file?
+    file_list = os.listdir(folder)
+    if "CONFIG.TXT" in file_list: 
+         site_values[columns[1]]=1
+    else:
+         site_values[columns[1]]=0
+
+    #Get size of data in the folder in GB str(round(answer, 2))
+    site_values[columns[2]]=str(round(get_folder_size_in_gb(folder),2))
+   
+    #"Eclipse Type"
+    eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, ESID=ESID, verbose=verbose)
+    if eclipse_info:
+        site_values[columns[4]]=str(eclipse_info['Eclipse_type'])
+    else:
+        site_values[columns[4]]="not found"
+
+    good_eclipse_type=True
+
+    if not eclipse_info:
+        good_eclipse_type=False
+    else:
+        
+        if str(eclipse_info['Eclipse_type']).lower != "nan":
+            good_eclipse_type=False
+        if str(eclipse_info['Eclipse_type']).lower != "not found":
+            good_eclipse_type=False
+
+
+    if site_values[columns[1]] == 1 and  good_eclipse_type : 
+         
+        if AM_timestamp_set(folder) == True:
+            site_values[columns[3]]=1
+
+            data_check=does_eclipse_data_exist(folder, eclipse_data_csv=eclipse_data_csv, verbose=verbose)
+            if data_check:
+                #Two Days before
+                if data_check["two_days_before"]:
+                   site_values[columns[6]]=1
+                else:
+                    site_values[columns[6]]=0
+                #One Day before  
+                if data_check["one_day_before"]:
+                    site_values[columns[7]]=1
+                else:
+                    site_values[columns[7]]=0
+                #Eclipse Day
+                if data_check["eclipse_day"]:
+                    site_values[columns[8]]=1
+                else:
+                    site_values[columns[8]]=0
+                #One Day after Eclipse
+                if data_check["one_day_after"]:
+                    site_values[columns[9]]=1
+                else:
+                    site_values[columns[9]]=0
+                #Two Days after Eclipse
+                if data_check["two_days_after"]: 
+                    site_values[columns[10]]=1
+                else:
+                    site_values[columns[10]]=0
+
+                if site_values[columns[6]] == 1 and site_values[columns[6]] == 1 and site_values[columns[7]] == 1:
+                    site_values[columns[5]]=1
+                else:
+                    site_values[columns[5]]=0
+
+            else:
+                #Two Days before
+                site_values[columns[6]]="N/A"
+                #One Day before  
+                site_values[columns[7]]="N/A"
+                #Eclipse Day
+                site_values[columns[8]]="N/A"
+                #One Day after Eclipse
+                site_values[columns[8]]="N/A"
+                #Two Days after Eclipse
+                site_values[columns[10]]="N/A"
+                #Three days if recording
+                site_values[columns[5]]="N/A"
+            
+        else:
+            site_values[columns[4]]=0
+            site_values[columns[5]] ="N/A"
+            site_values[columns[6]] ="N/A"
+            site_values[columns[7]] ="N/A"
+            site_values[columns[5]] ="N/A"
+            site_values[columns[9]] ="N/A"
+            site_values[columns[10]] ="N/A"
+    
+
+         
+    else:
+        site_values[columns[3]] ="No Data"
+        site_values[columns[4]] =" - "
+        site_values[columns[5]] =" - "
+        site_values[columns[6]] =" - "
+        site_values[columns[7]] =" - "
+        site_values[columns[8]] =" - "
+        site_values[columns[9]] =" - "
+
+    #return site_values
+    df=pd.DataFrame.from_dict([site_values])
+
+    # Define the output CSV file path
+    output_file_path = os.path.join(folder,'Report_1.csv')
+
+    #Save the DataFrame to a CSV file
+    if save:
+         df.to_csv(output_file_path, index=False)
+
+    if verbose: print(f"DataFrame saved to {output_file_path}")   
+
+    return df 
+
+def does_eclipse_data_exist(folder, eclipse_data_csv=None, verbose=None, UTC_max_diff_hours=None):
+    if not UTC_max_diff_hours:
+        UTC_max_diff_hours=1
+
+    ESID=filename_2_ESID(folder)
+    
+    if eclipse_data_csv:
+        if verbose: print("eclipse_data_csv"+eclipse_data_csv)
+    else:
+         print("No eclipse_data_csv passed to does_eclipse_data_exist")
+    if os.path.isfile(eclipse_data_csv) :
+        eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, ESID=ESID, verbose=verbose)
+        if verbose: print(eclipse_info)
+        df=pd.DataFrame(eclipse_info, index=[0])
+        #df=pd.read_csv(eclipse_data_csv, header=[0])
+        time_format="%Y-%m-%d %H:%M:%S"
+        if verbose: print("success! " + eclipse_data_csv)     
+
+        if df['Eclipse_type'].values[0] != np.nan:
+            data_check_dict={
+                "eclipse type": df['Eclipse_type'].values[0],
+                "two_days_before":False,
+                "one_day_before":False,
+                "eclipse_day":False,
+                "one_day_after":False,
+                "two_days_after":False
+            }
+            test=True
+            if type(df["SecondContactTimeUTC"].values[0]) != type("test"):
+                test=False
+            eclipse_local_type= df['Eclipse_type'].values[0]
+            if eclipse_local_type == "NaN":
+                test=False
+            if eclipse_local_type != "Annular" or eclipse_local_type != "Total": 
+                test=False
+            if df["SecondContactTimeUTC"].values[0] == 0:
+                test=False
+
+           
+            if test :
+        #if eclipse_type == "Annular" or eclipse_type == "Total":
+        ###########################################################################
+            #set the eclipse start time
+                chars_to_remove=["\"", "\'", "[", "]"]
+                second_contact=str(df["FirstContactDate"].values[0]+" "+df["SecondContactTimeUTC"].values[0])
+                for char_to_remove in chars_to_remove:
+                    second_contact.replace(char_to_remove, '')
+                print(second_contact)
+        #eclipse_start_time = datetime.datetime(2023, 10, 14, 17, 34) 
+                eclipse_start_time = datetime.datetime.strptime(second_contact, time_format)
+        ########################################################################### 
+            #set the eclipse end time
+        #eclipse_end_time = datetime.datetime(2023, 10, 14, 17, 39)
+                third_contact = str(df["FirstContactDate"].values[0]+" "+df["ThirdContactTimeUTC"].values[0])
+            ###########################################################################
+            #
+                for char_to_remove in chars_to_remove:
+                    third_contact.replace(char_to_remove, '')
+                eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+            else:
+                max_eclipse=datetime.datetime.strptime(
+                    df["FirstContactDate"].values[0]+ " " + df["MaxEclipseTimeUTC"].values[0], time_format)
+                eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
+                eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
+        ########################################################################### 
+        #
+            two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48+UTC_max_diff_hours)
+            two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48+UTC_max_diff_hours)
+
+            one_day_before_start_time=eclipse_start_time-datetime.timedelta(hours=24+UTC_max_diff_hours)   
+            one_day_before_end_time=eclipse_end_time-datetime.timedelta(hours=24+UTC_max_diff_hours)
+
+            one_day_after_start_time=eclipse_start_time+datetime.timedelta(hours=24+UTC_max_diff_hours)   
+            one_day_after_end_time=eclipse_end_time+datetime.timedelta(hours=24+UTC_max_diff_hours)
+        
+            two_days_after_start_time=eclipse_start_time+datetime.timedelta(hours=48+UTC_max_diff_hours)
+            two_days_after_end_time=eclipse_end_time+datetime.timedelta(hours=48+UTC_max_diff_hours)
+
+        ###########################################################################  
+        recording_files=glob.glob(os.path.join(folder,"*."+"WAV"))
+        if verbose: print(len(recording_files))  
+        #get a list of datetime objects associated with the .WAV files 
+        file_date_times=filename_2_datetime(recording_files, file_type="AudioMoth", verbose=verbose)
+
+        
+        two_days_before_begin=False
+        two_days_before_end=False
+        one_day_before_begin=False
+        one_day_before_end=False
+        eclipse_day_begin=False
+        eclipse_day_end=False
+        one_day_after_begin=False
+        one_day_after_end=False
+        two_days_after_begin=False
+        two_days_after_end=False
+
+        for file_date_time in file_date_times:
+        # Check if the datetime is before the start time and after the end time
+            if file_date_time <= two_days_before_start_time:
+                two_days_before_begin=True
+            if file_date_time >= two_days_before_end_time:
+                two_days_before_end=True
+
+            if file_date_time <= one_day_before_start_time:
+                one_day_before_begin=True
+            if file_date_time >= one_day_before_end_time:
+                one_day_before_end=True
+
+            if file_date_time <= eclipse_start_time:
+                eclipse_day_begin=True
+            if file_date_time >= eclipse_end_time:
+                eclipse_day_end=True
+
+            if file_date_time <= one_day_after_start_time:
+                one_day_after_begin=True
+            if file_date_time >= one_day_after_end_time:
+                one_day_after_end=True
+
+            if file_date_time <= two_days_after_start_time:
+                two_days_after_begin=True
+            if file_date_time >= two_days_after_end_time:
+                two_days_after_end=True
+    
+
+        if two_days_before_begin and two_days_before_end:
+            data_check_dict["two_days_before"]=True
+
+        if one_day_before_begin and one_day_before_end:
+            data_check_dict["one_day_before"]=True
+
+        if eclipse_day_begin and eclipse_day_end:
+            data_check_dict["eclipse_day"]=True
+
+        if one_day_after_begin and one_day_after_end:
+            data_check_dict["one_day_after"]=True
+            
+        if two_days_after_begin and two_days_after_end:
+            data_check_dict["two_days_after"]=True
+
+    else:
+        print("No eclipse_data_csv passed to does_eclipse_data_exist")
+        data_check_dict=None
+
+    return data_check_dict

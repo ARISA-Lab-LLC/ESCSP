@@ -7,6 +7,7 @@ import glob
 #top_dir="/media/tracy/ESCSPA00/Annular_DATA/"
 top_dir="/media/tracy/ESCSPA00/Annular_Analysis_Data/"
 #top_dir="/Volumes/Austrian/Annular_DATA/"
+eclipse_data_csv=os.path.join(top_dir, "Spreadsheets", "2023_Annular_Eclipse_eclipse_data_all.csv")
 
 youtube_folder=top_dir+"YouTube_Queue/"
 
