@@ -25,9 +25,10 @@ from scipy.misc import derivative
 from scipy.interpolate import interp1d
 import copy
 #import moviepy
-from moviepy.editor import *
+from moviepy import *
 import re
 import scipy
+import pytz
 ###########################################################################
 #Global Variables section
 user_images=None
@@ -159,7 +160,7 @@ def read_escsp_setup():
 
     return escsp_info
 
-def escsp_read_eclipse_csv(eclipse_data_csv, verbose=None, ESID=False):
+def escsp_read_eclipse_csv(eclipse_data_csv, verbose=False, ESID=False):
     """
     Extracts the row from a CSV file where the 'AudioMoth ES ID Number' matches a given string,
     and returns the columns as a dict 
@@ -222,7 +223,7 @@ def escsp_read_eclipse_csv(eclipse_data_csv, verbose=None, ESID=False):
 
     return eclipse_info
 
-def escsp_get_eclipse_time_trio(eclipse_info, verbose=None):
+def escsp_get_eclipse_time_trio(eclipse_info, verbose=False):
     time_format="%Y-%m-%d %H:%M:%S"
     eclipse_type=eclipse_info["Eclipse_type"]
     if eclipse_type == "Annular" or eclipse_type == "Total":
@@ -239,8 +240,8 @@ def escsp_get_eclipse_time_trio(eclipse_info, verbose=None):
         max_eclipse= datetime.datetime.strptime(eclipse_info["FirstContactDate"] + 
                                                 " " +eclipse_info["MaxEclipseTimeUTC"], 
                                                 time_format)
-        eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
-        eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
+        eclipse_start_time=max_eclipse-datetime.timedelta(minutes=1.5)
+        eclipse_end_time=max_eclipse+datetime.timedelta(minutes=1.5)
 
     two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
     two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
@@ -312,24 +313,28 @@ def filename_2_datetime(files, file_type="AudioMoth", verbose=False):
     return date_times
 
 def get_files_between_times(files, start_time, end_time):
-    """Return only the filepaths for the recording files that are between the start_time & the end_time"""
+    """Return only the filepaths for the recording files that are between the start_time-1 minute & the end_time+1 minute"""
 
     #I know there is a better way (more matrix) to do this, but I don't have the time to figure it out.
-    return_files=None
+    return_files=[]
+    one_minute=datetime.timedelta(minutes=1)
     for file in files:
         date_and_time=filename_2_datetime(file, file_type="AudioMoth")
         date_and_time=date_and_time[0]
-        if date_and_time >= start_time and date_and_time <= end_time: 
-            if not return_files: return_files=[file]
-            else: return_files.append(file)
+        if date_and_time >= start_time-one_minute and date_and_time <= end_time+one_minute: 
+            return_files.append(file)
 
+    #return_files=natsorted(return_files)
     return return_files
 
-def combine_wave_files(files, verbose=None):
+def combine_wave_files(files, start_time=False, end_time=False, verbose=None):
     """Open the wave files in the list 'files' and combine them into one long wave file"""
     
     audio=False
     Fs_original=False
+
+    Files_start_dt=filename_2_datetime(files[0])[0]
+    Files_end_dt=filename_2_datetime(files[len(files)-1])[0]+datetime.timedelta(minutes=1)
 
     counter=0
     if verbose: print("Number of files= "+str(len(files)))
@@ -342,37 +347,96 @@ def combine_wave_files(files, verbose=None):
              audio=np.concatenate((audio, audio_2), axis=0) # scipy.sparse.vstack(audio, audio_2)
 
         counter+=1
+    if start_time:
+        diff_between_starts=start_time-Files_start_dt
+        trim_start=int(diff_between_starts.total_seconds()*Fs_original)
+    else:
+        trim_start=int(0)
+    
+    if end_time:
+        diff_between_ends=Files_end_dt-end_time
+        trim_end=int(len(audio)-int(1)-int(diff_between_ends.total_seconds()*Fs_original))
+    else:
+         trim_end=int(len(audio)-1)
+    
+
+    audio=audio[trim_start:trim_end]
 
     return audio, Fs_original
 
-def adjust_am_datetime(files, start_time, move=False, verbose=False):
+def adjust_am_datetime(files, start_time,  time_zone_value, 
+                       time_str="%Y-%m-%d %H:%M:%S", 
+                       updated_folder=False, 
+                       verbose=False):
     """Program to adjust the time of AudioMoth files if the time was not properly set. 
-      Requires a set of recording files and a datetime object of the reported start time."""
-    files=natsorted(files)
-    N_files=len(files)
-    updated_file_names = None
-    date_and_times=[]
-    delta_times=[]
-    counter=1
-    if len(files) >= 1:
+    Requires a set of recording files and a datetime object of the reported start time.
+
+    Args:
+    - files list of files to adjust to the the first start-time
+    - start_time= String of the time that the first "real" recording was taken.
+    - updated_folder (str): Folder to copy the WAV file to with the updated timestamp
+    - verbose
+    - 
+
+    Returns:
+    - 
+    - 
+      
+    """
+
+    if verbose:
+        print("start_time: "+start_time)
+        print("time_zone_value: "+time_zone_value)
+        print("time_str" + time_str)
+
     
+    recorded_time_dt=datetime.datetime.strptime(start_time, time_str)
+    time_zone = pytz.timezone(time_zone_value)
+    recorded_time_dt=time_zone.localize(recorded_time_dt)
+    utc_time = recorded_time_dt.astimezone(pytz.UTC)
+
+    files=natsorted(files)
+    first_real_file_found=0
+    updated_file_names=[]
+
+    if len(files) >= 1:
+        
         for file in files:  
             if verbose: print("File= "+ file)
-            d_and_t_0=filename_2_datetime(file, file_type="AudioMoth")
-            if counter<= N_files-1:
-                if verbose: print("Calculating "+files[counter]+" - "+file)
-                delta=filename_2_datetime(files[counter], file_type="AudioMoth")[0]-d_and_t_0[0]
-                delta_times.append(delta)
-
-            date_and_times.append(d_and_t_0[0])
-            if verbose: print("length of date_and_times= "+str(len(date_and_times)))
-            counter+=1
-            #if verbose: print(date_and_times)
+            if os.path.getsize(file) < 5760080:
+                updated_file_names.append('')
             
-           
-    #print(delta_times)
+            else:
+                d_and_t_0=filename_2_datetime(file, file_type="AudioMoth")[0]
+                d_and_t_0=time_zone.localize(d_and_t_0)
+                if first_real_file_found == 0:
+                    time_shift=utc_time-d_and_t_0
+                    first_real_file_found=1
 
-    return delta_times #updated_file_names
+                updated_file_name = datetime_2_filename(time_shift + d_and_t_0, AudioMoth=True)
+                updated_file_names.append(updated_file_name)
+
+                if verbose:
+                    print("original_file_name: " + file)
+                    print("updated_file_name: " + updated_file_name)
+                    print("updated_path: " + os.path.join(updated_folder, updated_file_name))
+
+
+                if updated_folder:
+                    if not os.path.isdir(updated_folder):
+                        os.makedirs(updated_folder)
+                    command_line="cp "+file+" "+os.path.join(updated_folder, updated_file_name)
+                    os.system(command_line)
+                    if verbose:
+                        print("Original_file_name: " + file)
+                        print("Saved file: "+os.path.join(updated_folder, updated_file_name))
+
+    else:
+        if verbose:
+            print("No files submitted")
+        updated_file_names=None  
+
+    return updated_file_names #updated_file_names
 
 def get_es_folder_list(top_level, verbose=False, split = False):
     """ Program to get all of the ES sub-folders from a top level directory."""
@@ -424,30 +488,57 @@ def filename_2_ESID(file, verbose=False):
    
     return str(esid).zfill(3)
 
-def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", verbose=False, eclipse_data_csv=False):
+def escsp_get_psd(folder, plots_folder, filelist=None, 
+                  eclipse_type = "Total", verbose=False, 
+                  eclipse_data_csv=False, Hertz=False,
+                  relative_psd_csv=False,
+                  new_relative_psd_csv=False,
+                  spreadsheets_folder=False,
+                  wave_folder=False,
+                  old_plots=False):
+    
     if verbose: print("eclipse_data_csv = "+eclipse_data_csv)
     if verbose: print(folder)
     ESID=filename_2_ESID(folder)
     if verbose: print("ESID #=" + ESID)
-    plot_1_name=os.path.join(plots_folder, "PSD_plot_Welch"+ESID+".png")
+    plot_1_name=os.path.join(plots_folder, "PSD_plot_Welch_ESID#"+ESID+".png")
     if verbose: print("plot_1_name= "+plot_1_name)
-    plot_1a_name=os.path.join(folder, "PSD_plot_Welch"+ESID+".png")
+    plot_1a_name=os.path.join(folder, "PSD_plot_Welch_ESID#"+ESID+".png")
 
     #Welch and Ba rtlet plots
-    plot_2a_name=os.path.join(plots_folder, "PSD_W_and_B_plot_"+ESID+".png")
+    plot_2a_name=os.path.join(plots_folder, "PSD_W_and_B_plot_ESID#"+ESID+".png")
     if verbose: print("plot_2a_name (Welch)= "+plot_2a_name)
-    plot_2b_name=os.path.join(plots_folder, "PSD_Bartlett_plot_"+ESID+".png")
+    plot_2b_name=os.path.join(plots_folder, "PSD_Bartlett_plot_ESID#"+ESID+".png")
     if verbose: print("plot_2b_name (Bartlett)= "+plot_2b_name)
     #Eclipse Day over average plots
-    plot_3a_name=os.path.join(plots_folder, "PSD_Average_plot_"+ESID+".png")
+    plot_3a_name=os.path.join(plots_folder, "PSD_Average_plot_ESID#"+ESID+".png")
     if verbose: print("plot_3a_name (Average)= "+plot_3a_name)
-    plot_3b_name=os.path.join(folder, "PSD_Average_plot_"+ESID+".png")
+    plot_3b_name=os.path.join(folder, "PSD_Average_plot_ESID#"+ESID+".png")
     if verbose: print("plot_3b_name (Average)= "+plot_3b_name)
     #Eclipse Day over average plots in the cricket frequencies
-    plot_4a_name=os.path.join(plots_folder, "PSD_Average_plot_"+ESID+"_2-6_kHz.png")
+    plot_4a_name=os.path.join(plots_folder, "PSD_Average_plot_ESID#"+ESID+"_2-8_kHz.png")
     if verbose: print("plot_4a_name (Average)= "+plot_4a_name)
-    plot_4b_name=os.path.join(folder, "PSD_Average_plot_"+ESID+"_2-6_kHz.png")
+    plot_4b_name=os.path.join(folder, "PSD_Average_plot_ESID#"+ESID+"_2-8_kHz.png")
     if verbose: print("plot_4b_name (Average)= "+plot_4b_name)
+    plot_5a_name=os.path.join(plots_folder, "Relative_PSD_plot_ESID#"+ESID+"_2-8_kHz.png")
+    if verbose: print("plot_5a_name (Average)= "+plot_5a_name)
+    plot_6a_name=os.path.join(plots_folder, "Relative_Power_plot_ESID#"+ESID+"_2-8_kHz.png")
+    if verbose: print("plot_6a_name (Average)= "+plot_6a_name)
+    csv_6a_name=os.path.join(plots_folder, "Relative_Power_and_Times_ESID#"+ESID+"_2-8_kHz.csv")
+
+
+
+    #set the range for crickets [2 to 8 kHz]
+    cricket_freq_range=[2000., 8000.]
+
+    if Hertz:
+        to_kHz=1
+        x_axis_freq_label='frequency [Hertz]'
+        y_axis_freq_label='Power Spectral Density[Pascals^2$/Hz]'
+    else:
+        to_kHz=1000.
+        x_axis_freq_label='frequency [kiloHertz]'
+        y_axis_freq_label='Power Spectral Density[Pascals^2$/kHz]'
     ###########################################################################
     out_text=str(ESID).zfill(3)+",,,,,,,,,,,,\n"
     ###########################################################################
@@ -456,54 +547,79 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
 
     if os.path.isfile(eclipse_data_csv) :
         eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, ESID=ESID, verbose=verbose)
+        eclipse_time_trio=escsp_get_eclipse_time_trio(eclipse_info, verbose=verbose)
+        eclipse_local_type=eclipse_info["Eclipse_type"]
         if verbose: print(eclipse_info)
         df=pd.DataFrame(eclipse_info, index=[0])
-        #df=pd.read_csv(eclipse_data_csv, header=[0])
-        time_format="%Y-%m-%d %H:%M:%S"
         if verbose: print("success! " + eclipse_data_csv) 
         
-        test=True
-        if type(df["SecondContactTimeUTC"].values[0]) != type("test"):
-            test=False
-        eclipse_local_type= df['Eclipse_type'].values[0]
-        if eclipse_local_type == "NaN":
-            test=False
-        if eclipse_local_type != "Annular" or eclipse_local_type != "Total": 
-            test=False
+        #eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
+        #eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
+        #second_contact=datetime.datetime.strftime(eclipse_start_time, time_format)
+        #third_contact = datetime.datetime.strftime(eclipse_end_time, time_format)
+        #df=pd.read_csv(eclipse_data_csv, header=[0])
+        #time_format="%Y-%m-%d %H:%M:%S"
+        #test=True
+        #if type(df["SecondContactTimeUTC"].values[0]) != type("test"):
+        #    test=False
+        #eclipse_local_type= df['Eclipse_type'].values[0]
+        #print("Eclipse Type= "+eclipse_local_type)
+        #if eclipse_local_type == "NaN":
+        #    test=False
+        #if eclipse_local_type != "Annular" or eclipse_local_type != "Total": 
+        #    test=False
 
-
-        if test :
+        #if test :
         #if eclipse_type == "Annular" or eclipse_type == "Total":
         ###########################################################################
             #set the eclipse start time
-            chars_to_remove=["\"", "\'", "[", "]"]
-            second_contact=str(df["FirstContactDate"].values[0]+" "+df["SecondContactTimeUTC"].values[0])
-            for char_to_remove in chars_to_remove:
-                second_contact.replace(char_to_remove, '')
-            print(second_contact)
-        #eclipse_start_time = datetime.datetime(2023, 10, 14, 17, 34) 
-            eclipse_start_time = datetime.datetime.strptime(second_contact, time_format)
-        ########################################################################### 
-            #set the eclipse end time
-        #eclipse_end_time = datetime.datetime(2023, 10, 14, 17, 39)
-            third_contact = str(df["FirstContactDate"].values[0]+" "+df["ThirdContactTimeUTC"].values[0])
+        #    chars_to_remove=["\"", "\'", "[", "]"]
+
+
+        #    second_contact=df["FirstContactDate"].values[0]+" "+df["SecondContactTimeUTC"].values[0]
+        #    third_contact = df["FirstContactDate"].values[0]+" "+df["ThirdContactTimeUTC"].values[0]
+        #    for char_to_remove in chars_to_remove:
+        #        second_contact.replace(char_to_remove, '')
+        #    print("Second Contact"+second_contact)
+
+        #    eclipse_start_time = datetime.datetime.strptime(second_contact, time_format)
             ###########################################################################
             #
-            for char_to_remove in chars_to_remove:
-                third_contact.replace(char_to_remove, '')
-            eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
-        else:
-            max_eclipse=datetime.datetime.strptime(
-                df["FirstContactDate"].values[0]+ " " + df["MaxEclipseTimeUTC"].values[0], time_format)
-            eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
-            eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
-        ########################################################################### 
-        #
-        two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
-        two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
+        #    for char_to_remove in chars_to_remove:
+        #        third_contact.replace(char_to_remove, '')
+        #    eclipse_end_time =  datetime.datetime.strptime(third_contact, time_format) 
+        #else:
+        #    max_eclipse=datetime.datetime.strptime(
+        #        df["FirstContactDate"].values[0]+ " " + df["MaxEclipseTimeUTC"].values[0], time_format)
+        #eclipse_start_time=max_eclipse-datetime.timedelta(minutes=3)
+        #eclipse_end_time=max_eclipse+datetime.timedelta(minutes=3)
+        #second_contact=datetime.datetime.strftime(eclipse_start_time, time_format)
+        #third_contact = datetime.datetime.strftime(eclipse_end_time, time_format)
 
-        one_day_before_start_time=eclipse_start_time-datetime.timedelta(hours=24)   
-        one_day_before_end_time=eclipse_end_time-datetime.timedelta(hours=24)
+        #eclipse_year=str(eclipse_time_trio["eclipse_start_time"].year)
+        eclipse_start_str=eclipse_time_trio["eclipse_start_time"].strftime("%Y-%B-%d_%H%M%S")+"_UTC".replace(" ", "")
+        one_day_before_str=eclipse_time_trio["one_day_before_start_time"].strftime("%Y-%B-%d_%H%M%S")+"_UTC".replace(" ", "")
+        two_days_before_str=eclipse_time_trio["two_days_before_start_time"].strftime("%Y-%B-%d_%H%M%S")+"_UTC".replace(" ", "")
+        ########################################################################### 
+        #DateTime elements
+        #two_days_before_start_time=eclipse_start_time-datetime.timedelta(hours=48)
+        #two_days_before_end_time=eclipse_end_time-datetime.timedelta(hours=48)
+
+        #one_day_before_start_time=eclipse_start_time-datetime.timedelta(hours=24)   
+        #one_day_before_end_time=eclipse_end_time-datetime.timedelta(hours=24)
+
+        #two_days_before_start_time=eclipse_time_trio["two_days_before_start_time"]
+        #two_days_before_end_time=eclipse_time_trio["two_days_before_end_time"]
+
+        #one_day_before_start_time=eclipse_time_trio["one_day_before_start_time"]
+        #one_day_before_end_time=eclipse_time_trio["one_day_before_end_time"]
+
+        eclipse_start_time=eclipse_time_trio["eclipse_start_time"]
+        eclipse_end_time=eclipse_time_trio["eclipse_end_time"]
+        ########################################################################### 
+        #DateTime strings
+        second_contact=eclipse_time_trio["eclipse_start_time"].strftime("%Y-%B-%d %H%M%S")+"UTC".replace(" ", "")
+        third_contact =eclipse_time_trio["eclipse_end_time"].strftime("%Y-%B-%d %H%M%S")+"UTC".replace(" ", "")
         ###########################################################################
         #Get all of the recording files at the site
         recording_files=glob.glob(os.path.join(folder,"*."+"WAV"))
@@ -526,17 +642,27 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
         test_arr=np.ndarray(shape=(2,2), dtype=float, order='F')
         ###########################################################################
         #Gather all if the .WAV files within the time frame of the eclipse
-        two_days_before_files=get_files_between_times(recording_files, two_days_before_start_time, two_days_before_end_time)     
-        one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
-        eclipse_files=get_files_between_times(recording_files, eclipse_start_time, eclipse_end_time)
+        #two_days_before_files=get_files_between_times(recording_files, two_days_before_start_time, two_days_before_end_time)     
+        #one_day_before_files=get_files_between_times(recording_files, one_day_before_start_time, one_day_before_end_time)
+        #eclipse_files=get_files_between_times(recording_files, eclipse_start_time, eclipse_end_time)
 
+        two_days_before_files=get_files_between_times(recording_files, eclipse_time_trio["two_days_before_start_time"],  
+                                                      eclipse_time_trio["two_days_before_end_time"])
+        one_day_before_files=get_files_between_times(recording_files, eclipse_time_trio["one_day_before_start_time"], 
+                                                     eclipse_time_trio["one_day_before_end_time"])
+        eclipse_files=get_files_between_times(recording_files, eclipse_time_trio["eclipse_start_time"], 
+                                              eclipse_time_trio["eclipse_end_time"])
+        
+        
+        
+        
         ###########################################################################
         #IF the filelist parameter is set, then write the names of the files to the filelst file.  
         if filelist:
             if os.path.isfile(filelist):
                 list_file=filelist
             else:
-                list_file=os.path.join(folder, ESID+'_Analysis_Files.csv')
+                list_file=os.path.join(folder, "ESID#"+ESID+'_Analysis_Files.csv')
             
             if eclipse_files:
                 df=pd.DataFrame({'Eclipse Files': eclipse_files}) 
@@ -555,7 +681,10 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
         #If there are are any .WAV files within the eclipse time on the eclipse day
         # then continue
         if eclipse_files: 
-            eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, verbose=verbose)
+            eclipse_wav, fs_ecl=combine_wave_files(eclipse_files, 
+                                                   start_time= eclipse_time_trio["eclipse_start_time"], 
+                                                   end_time=eclipse_time_trio["eclipse_end_time"], 
+                                                   verbose=None)
             #f0, eclipse_psd=scipy.signal.periodogram(eclipse_wav, fs_ecl)
             fig, ax =plt.subplots()
             ax.psd(eclipse_wav, Fs=fs_ecl, color="orange", label="Eclipse Day")
@@ -563,34 +692,61 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
             freqs_out_ecl_wel, eclipse_wav_psd_welch=calc_psd(eclipse_wav, fs_ecl)
             freqs_out_ecl_bart, eclipse_wav_psd_bart=calc_psd(eclipse_wav, fs_ecl, Bartlett=True)
 
+            #Write write out file of data to be analyzed 
+            ecl_data_start_time=filename_2_datetime(eclipse_files[0])[0].strftime("%Y-%B-%d_%H%M%S")+"_UTC".replace(" ", "")
+            ecl_data_start_time=eclipse_start_str
+            wav_file_name=os.path.join(wave_folder, 
+                                          "ESID#"+ESID+"_"+ecl_data_start_time+".WAV")
+            wavfile.write(wav_file_name, fs_ecl, eclipse_wav)
             ###########################################################################
             #If there are are any .WAV files within the eclipse time two days before the eclipse
             # then do this part
             if two_days_before_files :
                 print("Length of filelist: " + str(len(two_days_before_files)))
-                two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, verbose=verbose)
+                two_days_before_wav, fs_tdb = combine_wave_files(two_days_before_files, 
+                                                   start_time= eclipse_time_trio["two_days_before_start_time"], 
+                                                   end_time=eclipse_time_trio["two_days_before_end_time"], 
+                                                   verbose=None)
                 #f2, two_days_before_psd=scipy.signal.periodogram(two_days_before_wav, fs_tdb)
                 ax.psd(two_days_before_wav, Fs=fs_tdb, color="green", label="Two Days Before")
                 freqs_out_tdb_wel, tdb_wav_psd_welch=calc_psd(two_days_before_wav, fs_tdb)
                 freqs_out_tdb_bart, tdb_wav_psd_bart=calc_psd(two_days_before_wav, fs_tdb, Bartlett=True)
+
+                #Write write out file of data to be analyzed 
+                tdb_data_start_time=filename_2_datetime(two_days_before_files[0])[0].strftime("%Y-%B-%d_%H%M%S")+"_UTC".replace(" ", "")
+
+                tdb_data_start_time=two_days_before_str
+                wav_file_name=os.path.join(wave_folder, 
+                                           "ESID#"+ESID+"_"+tdb_data_start_time+".WAV")
+                wavfile.write(wav_file_name, fs_tdb, two_days_before_wav)
             ###########################################################################
             #If there are are any .WAV files within the eclipse time one day before the eclipse
             # then continue
             if one_day_before_files: 
-                one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files, verbose=verbose)
+                one_day_before_wav, fs_odb = combine_wave_files(one_day_before_files, 
+                                                   start_time= eclipse_time_trio["one_day_before_start_time"], 
+                                                   end_time=eclipse_time_trio["one_day_before_end_time"], 
+                                                   verbose=None)
                 #f1, one_day_before_psd=scipy.signal.periodogram(one_day_before_wav, fs_odb)
                 ax.psd(one_day_before_wav, Fs=fs_odb, color="blue", label="One Day Before")
                 freqs_out_odb_wel, odb_wav_psd_welch=calc_psd(one_day_before_wav, fs_odb)
                 freqs_out_odb_bart, odb_wav_psd_bart=calc_psd(one_day_before_wav, fs_odb, Bartlett=True)
 
+                #Write write out file of data to be analyzed 
+                odb_data_start_time=filename_2_datetime(one_day_before_files[0])[0].strftime("%Y-%B-%d_%H%M%S")+"_UTC".replace(" ", "")
+                odb_data_start_time=one_day_before_str
+                wav_file_name=os.path.join(wave_folder, 
+                                           "ESID#"+ESID+"_"+odb_data_start_time+".WAV")
+                wavfile.write(wav_file_name, fs_odb, one_day_before_wav)
             ###########################################################################
             #create the legend and the plots.  This indentation ensures that the plot will 
-            # be made, even if there are only eclipse files        
-            legend = ax.legend(loc='upper center', shadow=True, fontsize='large')
-            plt.savefig(plot_1_name)
-            if verbose: print("Saved file "+plot_1_name)    
-            plt.savefig(plot_1a_name)
-            if verbose: print("Saved file "+plot_1a_name)
+            # be made, even if there are only eclipse files 
+            if old_plots:       
+                legend = ax.legend(loc='upper center', shadow=True, fontsize='large')
+                plt.savefig(plot_1_name)
+                if verbose: print("Saved file "+plot_1_name)    
+                plt.savefig(plot_1a_name)
+                if verbose: print("Saved file "+plot_1a_name)
             plt.close(fig)
         ###########################################################################
         #Make Plots of the Welch PSD
@@ -598,11 +754,11 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
 
             plt.figure()
             plt.title("PSD Welch's & Bartlett's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
-            plt.semilogy(freqs_out_ecl_wel, eclipse_wav_psd_welch,color="orange", label="W. Eclipse Day")
+            plt.semilogy(freqs_out_ecl_wel/to_kHz, eclipse_wav_psd_welch,color="orange", label="W. Eclipse Day")
             if type(freqs_out_odb_wel) == type(test_arr):
-                 plt.semilogy(freqs_out_odb_wel, odb_wav_psd_welch, color="blue", label="W. One Day Before")
+                 plt.semilogy(freqs_out_odb_wel/to_kHz, odb_wav_psd_welch/to_kHz, color="blue", label="W. One Day Before")
             if type(freqs_out_tdb_wel) == type(test_arr):
-                 plt.semilogy(freqs_out_tdb_wel, tdb_wav_psd_welch, color="green", label="W. Two Days Before")
+                 plt.semilogy(freqs_out_tdb_wel/to_kHz, tdb_wav_psd_welch/to_kHz, color="green", label="W. Two Days Before")
             ###########################################################################
             #create the legend and the plots.  This indentation ensures that the plot will 
             # be made, even if there are only eclipse files
@@ -615,28 +771,29 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
             #plt.close(fig)
         ##########################################################################    
         #Make Plots of the Bartlett PSD
-        if type(freqs_out_ecl_bart) == type(test_arr):
+        if type(freqs_out_ecl_bart) == type(test_arr) and old_plots:
             #plt.figure()
             #plt.title("PSD Bartlett's Method "+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
-            plt.scatter(freqs_out_ecl_bart, eclipse_wav_psd_bart,color="orange", 
+            plt.scatter(freqs_out_ecl_bart/to_kHz, eclipse_wav_psd_bart*to_kHz,color="orange", 
                         label="B. Eclipse Day", marker='D')  # 'D' specifies diamond shape
             if type(freqs_out_odb_bart) == type(test_arr):
-                 plt.scatter(freqs_out_odb_bart, odb_wav_psd_bart, color="blue", 
+                 plt.scatter(freqs_out_odb_bart/to_kHz, odb_wav_psd_bart/to_kHz, color="blue", 
                              label="B. One Day Before", marker='D')  # 'D' specifies diamond shape
             if type(freqs_out_tdb_bart) == type(test_arr):
-                 plt.scatter(freqs_out_tdb_bart, tdb_wav_psd_bart, color="green", 
+                 plt.scatter(freqs_out_tdb_bart/to_kHz, tdb_wav_psd_bart/to_kHz, color="green", 
                              label="B. Two Days Before", marker='D')  # 'D' specifies diamond shape
             ###########################################################################
             #create the legend and the plots.  This indentation ensures that the plot will 
             # be made, even if there are only eclipse files
-            plt.xlabel('frequency [Hz]')
-            plt.ylabel('PSD [V**2/Hz]')
+            plt.xlabel(x_axis_freq_label)
+            plt.ylabel(y_axis_freq_label)
             plt.legend(loc='upper center', shadow=True, fontsize='large')
             
             #plt.savefig(plot_2b_name)
             #if verbose: print("Saved file "+plot_2b_name)
-            plt.savefig(plot_2a_name)
-            if verbose: print("Saved file "+plot_2a_name)
+            if old_plots:
+                plt.savefig(plot_2a_name)
+                if verbose: print("Saved file "+plot_2a_name)
             plt.close(fig)
 
         ###########################################################################
@@ -650,6 +807,8 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
                  freqs_out_tdb_wel, tdb_wav_psd_welch)
             # Plot the with error bars
 
+
+                 
             # Calculate twice the standard error
             twice_standard_error = 2.0 * avg_psd_std
 
@@ -658,25 +817,26 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
             # Plot the average with standard deviation error bars
 
             # Overplot twice the standard error
-            plt.errorbar(interp_freqs, avg_psd, yerr=twice_standard_error, fmt='o', label='Twice Standard Error',
+            plt.errorbar(interp_freqs/to_kHz, avg_psd*to_kHz, yerr=twice_standard_error*to_kHz, fmt='o', label='Twice Standard Error',
                          color='green', ecolor='blue', elinewidth=2, capsize=4,alpha=0.7)
             
             # Overplot  the standard error
-            plt.errorbar(interp_freqs, avg_psd, yerr=avg_psd_std, fmt='o', label='Average with Std Dev',
+            plt.errorbar(interp_freqs/to_kHz, avg_psd*to_kHz, yerr=avg_psd_std*to_kHz, fmt='o', label='Average with Std Dev',
                          color='green', ecolor='green', elinewidth=2, capsize=4, alpha=0.5)
             
             # Overlay the eclipse day data (freqs_out_ecl_wel, eclipse_wav_psd_welch) with a different style
-            plt.plot(freqs_out_ecl_wel, eclipse_wav_psd_welch, label='Eclipse Day', 
+            plt.plot(freqs_out_ecl_wel/to_kHz, eclipse_wav_psd_welch*to_kHz, label='Eclipse Day', 
                      color='orange', linewidth=2.5, linestyle='solid')
             
             # Set the y-axis to semilog scale
             plt.yscale('log')
-            plt.xlabel('frequency [Hz]')
-            plt.ylabel('PSD [V**2/Hz]')
+            plt.xlabel(x_axis_freq_label)
+            plt.ylabel(y_axis_freq_label)
             plt.legend(loc='upper center', shadow=True, fontsize='large')
-            plt.savefig(plot_3a_name)
-            if verbose: print("Saved file "+plot_3a_name)
-            plt.savefig(plot_3b_name)
+            if old_plots:
+                plt.savefig(plot_3a_name)
+                if verbose: print("Saved file "+plot_3a_name)
+                plt.savefig(plot_3b_name)
             if verbose: print("Saved file "+plot_3b_name)
             plt.close(fig)
             ###########################################################################
@@ -687,42 +847,129 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
             # Plot the average with standard deviation error bars
 
             # Overplot twice the standard error
-            plt.errorbar(interp_freqs, avg_psd, yerr=twice_standard_error, fmt='o', label='Twice Standard Error',
+            plt.errorbar(interp_freqs/to_kHz, avg_psd*to_kHz, yerr=twice_standard_error*to_kHz, fmt='o', label='Twice Standard Error',
                          color='green', ecolor='blue', elinewidth=2, capsize=4,alpha=0.7)
             
             # Overplot  the standard error
-            plt.errorbar(interp_freqs, avg_psd, yerr=avg_psd_std, fmt='o', label='Average with Std Dev',
+            plt.errorbar(interp_freqs/to_kHz, avg_psd*to_kHz, yerr=avg_psd_std*to_kHz, fmt='o', label='Average with Std Dev',
                          color='green', ecolor='green', elinewidth=2, capsize=4, alpha=0.5)
             
             # Overlay the eclipse day data (freqs_out_ecl_wel, eclipse_wav_psd_welch) with a different style
-            plt.plot(freqs_out_ecl_wel, eclipse_wav_psd_welch, label='Eclipse Day', 
+            plt.plot(freqs_out_ecl_wel/to_kHz, eclipse_wav_psd_welch*to_kHz, label='Eclipse Day', 
                      color='orange', linewidth=2.5, linestyle='solid')
             
             # Set the y-axis to semilog scale
             #plt.yscale('log')
             #set the range for crickets [2 to 8 kHz]
-            plt.xlim(2000, 6000)
+            plt.xlim(cricket_freq_range[0]/to_kHz, cricket_freq_range[1]/to_kHz)
             # Use np.where to find the indices of elements between x1 and x2 (inclusive)
-            indices1 = np.where((interp_freqs >= 2000) & (interp_freqs <= 6000))[0]
-            indices2 = np.where((freqs_out_ecl_wel >= 2000) & (freqs_out_ecl_wel <= 6000))[0]
+            indices1 = np.where((interp_freqs >= np.min(cricket_freq_range)) & (interp_freqs <= np.max(cricket_freq_range)))[0]
+            indices2 = np.where((freqs_out_ecl_wel >= np.min(cricket_freq_range)) & (freqs_out_ecl_wel <= np.max(cricket_freq_range)))[0]
             ymin=.98*np.min([np.min(eclipse_wav_psd_welch[indices2]),
-                             np.min(avg_psd[indices1]-twice_standard_error[indices1])])
+                             np.min(avg_psd[indices1]-twice_standard_error[indices1])])*to_kHz
             ymax=1.02*np.max([np.max(eclipse_wav_psd_welch[indices2]),
-                         np.max(avg_psd[indices1]+twice_standard_error[indices1])])
+                         np.max(avg_psd[indices1]+twice_standard_error[indices1])])*to_kHz
             plt.ylim(ymin, ymax)
-            plt.xlabel('frequency [Hz]')
-            plt.ylabel('PSD [V**2/Hz]')
+            plt.xlabel(x_axis_freq_label)
+            plt.ylabel(y_axis_freq_label)
             plt.legend(loc='upper center', shadow=True, fontsize='large')
-            plt.savefig(plot_4a_name)
-            if verbose: print("Saved file "+plot_4a_name)
-            plt.savefig(plot_4b_name)
-            if verbose: print("Saved file "+plot_4b_name)
+            if old_plots:
+                plt.savefig(plot_4a_name)
+                if verbose: print("Saved file "+plot_4a_name)
+                plt.savefig(plot_4b_name)
+                if verbose: print("Saved file "+plot_4b_name)
             plt.close(fig)
             ###########################################################################
+            #Calculate and plot the Relative PSD in the cricket frenquency range
+            #relative_psd()
+            # Interpolate y-values to the interp_freqs values
+            interp_eclipse_day_psd=np.interp(
+                interp_freqs, freqs_out_ecl_wel, eclipse_wav_psd_welch,
+                left=eclipse_wav_psd_welch[0],
+                right=eclipse_wav_psd_welch[-1])
+             # Use np.where to find the indices of elements between x1 and x2 (inclusive)
+            indices1 = np.where(
+                (interp_freqs >= np.min(cricket_freq_range)) 
+                & (interp_freqs <= np.max(cricket_freq_range))
+                )[0]
+            
+            
+            relative_error=avg_psd_std/avg_psd
+            relative_2_times_error=twice_standard_error/avg_psd
+
+            relative_psd=interp_eclipse_day_psd/avg_psd
+
+            one_line=np.ones(len(relative_psd))
+
+            plt.figure()
+            plt.title("Relative PSD"+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0]))
+            #Plot a line showing all ones.
+            plt.plot(interp_freqs[indices1]/to_kHz, one_line[indices1], color='gray', linestyle=':')
+
+            # Plot the average with standard deviation error bars
+
+            # Overplot twice the standard error
+            plt.errorbar(interp_freqs[indices1]/to_kHz, one_line[indices1], 
+                         yerr=relative_2_times_error[indices1], fmt='o', 
+                         label='Relative Standard Error x 1, & x 2',
+                         color='blue', ecolor='blue', elinewidth=2, 
+                         capsize=4.5,alpha=0.7
+                         )
+            
+            # Overplot  the standard error
+            plt.errorbar(interp_freqs[indices1]/to_kHz, one_line[indices1], 
+                         yerr=relative_error[indices1], fmt='o', 
+                         #label='One Standard Error',
+                         color='blue', ecolor='blue', elinewidth=2, 
+                         capsize=4,alpha=0.7
+                         )
+            
+            # Overlay the eclipse day data  with a different style
+            plt.plot(interp_freqs[indices1]/to_kHz, relative_psd[indices1], 
+                     label='Eclipse Day Power Spectral Density \nRelative to the Average', 
+                     color='orange', linewidth=2.5, linestyle='solid'
+                     )
+            
+            # Set the y-axis to semilog scale
+            #plt.yscale('log')
+            #set the range for crickets [2 to 8 kHz]
+            plt.xlim(cricket_freq_range[0]/to_kHz, cricket_freq_range[1]/to_kHz)
+           
+            ymin=.98*np.min(relative_psd[indices1])
+            ymax=1.05*np.max(relative_psd[indices1])
+            ymin=-0.1
+
+            plt.ylim(ymin, ymax)
+            plt.xlabel(x_axis_freq_label)
+            plt.ylabel("Relative Power Spectral Density")
+            plt.legend(loc='upper center', shadow=True, fontsize='large')
+            if old_plots:
+                plt.savefig(plot_5a_name)
+                if verbose: print("Saved file "+plot_5a_name)
+            plt.close(fig)
+
+            if os.path.isfile(relative_psd_csv) and old_plots:
+                relative_psd_df=pd.DataFrame(
+                    {"Frequencies [kiloHertz]":interp_freqs[indices1]/to_kHz,
+                     "Relative Power Spectral Density Change": relative_psd[indices1],
+                     "Relative Error": relative_error[indices1],
+                     "Relative Error x 2":relative_2_times_error[indices1]
+                     }
+                     )
+                relative_psd_df.to_csv(relative_psd_csv, index=False)
+
+            else:
+                if relative_psd_csv:
+                    print(relative_psd_csv+ " is not a valid file location.")
+                else:
+                    if verbose: print("No Relative PSD csv filename given.")
+
+
+            ###########################################################################
             #Calculate cricket frequency values
-            indices1 = np.where((freqs_out_odb_wel >= 2000) & (freqs_out_odb_wel <= 6000))[0]
-            indices2 = np.where((freqs_out_tdb_wel >= 2000) & (freqs_out_tdb_wel <= 6000))[0]
-            indices3 = np.where((freqs_out_ecl_wel >= 2000) & (freqs_out_ecl_wel <= 6000))[0]
+            indices1 = np.where((freqs_out_odb_wel >= np.min(cricket_freq_range)) & (freqs_out_odb_wel <= np.max(cricket_freq_range)))[0]
+            indices2 = np.where((freqs_out_tdb_wel >= np.min(cricket_freq_range)) & (freqs_out_tdb_wel <= np.max(cricket_freq_range)))[0]
+            indices3 = np.where((freqs_out_ecl_wel >= np.min(cricket_freq_range)) & (freqs_out_ecl_wel <= np.max(cricket_freq_range)))[0]
 
             integrated_psd_odb = np.trapz(odb_wav_psd_welch[indices1], 
                                           freqs_out_odb_wel[indices1])
@@ -756,18 +1003,285 @@ def escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = "Total", v
             diff_all=integrated_psd_ecl_all-average_V2_all
             std_dev_diff_all=diff_all/V2_std_all
             ###########################################################################
+            #Calculate the relative power as a function of time.
+            two_days_before_times, two_days_before_power = power_in_frequency_range_welch(
+                fs_tdb, 
+                two_days_before_wav,
+                cricket_freq_range
+                )
+            one_day_before_times, one_day_before_power = power_in_frequency_range_welch(
+                fs_odb, 
+                one_day_before_wav,
+                cricket_freq_range
+                )
+            eclipse_times, eclipse_power = power_in_frequency_range_welch(
+                fs_ecl, 
+                eclipse_wav,
+                cricket_freq_range
+                )
+
+            avg_times,avg_power,avg_power_std = compute_average_and_std(two_days_before_times, 
+                                                                        two_days_before_power, 
+                                                                        one_day_before_times, 
+                                                                        one_day_before_power)
+            
+            if np.min(avg_power) < 0.0 or  np.min(avg_power_std) < 0.0:
+                if np.min(avg_power) < 0.0:
+                    print("np.min(avg_power) < 0 at site ")
+                    print("# of negative indices in avg_power: ",len(avg_power[np.where(np.any(avg_power<=0))]))
+                    print("Negative indices in avg_power: ", np.where(np.any(avg_power<=0)))
+                if np.min(avg_power_std):
+                    print("np.min(avg_power_std) < 0 at site ")
+                    print("# of negative indices in avg_power_std: ",len(avg_power_std[np.where(np.any(avg_power_std<=0))]))
+                    print("Negative indices in avg_power: ", np.where(np.any(avg_power_std<=0)))
+                
+                if np.min(one_day_before_power):
+                    print("np.min(one_day_before_power) < 0 at site ")
+                    print("# of negative indices in one_day_before_power: ",len(one_day_before_power[np.where(np.any(one_day_before_power<=0))]))
+                    print("Negative indices in one_day_before_power: ", np.where(np.any(one_day_before_power<=0)))
+                if np.min(two_days_before_power):
+                    print("np.min(two_days_before_power) < 0 at site ")
+                    print("# of negative indices in two_days_before_power: ",len(two_days_before_power[np.where(np.any(two_days_before_power<=0))]))
+                    print("Negative indices in two_days_before_power: ", np.where(np.any(two_days_before_power<=0)))
+                print("Check file "+plot_5a_name)
+
+            # Interpolate eclipse day power to match the avg_times
+            eclipse_day_power=np.interp(
+                avg_times, eclipse_times, eclipse_power,
+                left=eclipse_power[0],
+                right=eclipse_power[len(eclipse_power)-1]
+                )
+            
+            if np.min(eclipse_day_power) < 0.0:
+                print("np.min(eclipse_day_power) < 0 at site ")
+                print("# of negative indices in eclipse_day_power: ",len(eclipse_day_power[np.where(np.any(eclipse_day_power <=0))]))
+                print("Negative indices in eclipse_day_power: ",np.where(np.any(eclipse_day_power <=0)))
+
+                eclipse_day_power[np.where(eclipse_day_power<=0)]=np.min(eclipse_day_power)
+            #Percent (relative error)
+            relative_power_error=avg_power_std/avg_power
+
+            #Eclipse relative power
+            eclipse_relative_power=eclipse_day_power/avg_power
+
+            one_line=np.ones(len(avg_times))
+            Rel_power_title= "Relative Power on Eclipse Day \nRelative to Two Non-Eclipse Days in Cricket Freqencies \nat site ESID#"+ESID+" Eclipse on "+str(df["FirstContactDate"].values[0])
+            #Rel_power_title_temp=[]
+            #counter=0
+            #for  i in range(500):
+            #    Rel_power_title_temp.append(str(500-i))
+            
+            #Rel_power_title=""
+            
+            #for element in Rel_power_title_temp:
+            #    Rel_power_title=Rel_power_title+element+","
+
+            plt.figure()
+            plt.title(Rel_power_title)
+            #Plot a line showing all ones.
+            plt.plot(avg_times, one_line, color='gray', linestyle=':')
+
+            # Plot the average with standard deviation error bars
+
+            # Overplot twice the standard error
+            plt.errorbar(avg_times, one_line, 
+                         yerr=2.0*relative_power_error, fmt='o', 
+                         label='One Relative Standard Error',
+                         color='blue', ecolor='blue', elinewidth=2, 
+                         capsize=4.5,alpha=0.7
+                         )
+            
+            # Overplot  the standard error
+            plt.errorbar(avg_times, one_line, 
+                         yerr=relative_power_error, fmt='o', 
+                         #label='One Standard Error',
+                         color='blue', ecolor='blue', elinewidth=2, 
+                         capsize=4,alpha=0.7
+                         )
+            
+            # Overlay the eclipse day data  with a different style
+            plt.plot(avg_times, eclipse_relative_power, 
+                     label='Eclipse Day Power \nin Cricket Frequencies \nRelative to the Average Power of Two Non-Eclipse Days', 
+                     color='orange', linestyle='solid',
+                     )
+            #Plot a line showing all ones.
+            plt.plot(avg_times, one_line, color='gray',  linewidth=3, linestyle=':',
+                     label="Relative Average Power of Two Non-Eclipse Days")
+
+            # Set the y-axis to semilog scale
+            #plt.yscale('log')
+            #set the range for crickets [2 to 8 kHz]
+            #plt.xlim(cricket_freq_range[0]/to_kHz, cricket_freq_range[1]/to_kHz)
+           
+            ymin=-0.01
+            ymax=1.8*max([np.max(1.0+relative_power_error),np.max(eclipse_relative_power)])
+            plt.ylim(ymin, ymax)
+            plt.xlabel(
+                "Seconds From Eclipse Start Time at: "+ \
+                    str(df["FirstContactDate"].values[0])+ " "+ \
+                    str(df["MaxEclipseTimeUTC"].values[0])+ " "+ \
+                    "UTC" 
+                )
+            plt.ylabel("Relative Power")
+            plt.legend(loc='upper center', shadow=True, 
+                       fontsize='small',
+                       fancybox=True)
+            if old_plots:
+                plt.savefig(plot_6a_name)
+                if verbose: print("Saved file "+plot_6a_name)
+            plt.close(fig)
+            ###########################################################################
+            #Output relative power as a function of time to a csv file.
+            df_rel_power=pd.DataFrame({
+                "Seconds From Eclipse Start Time at: \n"+ \
+                    str(df["FirstContactDate"].values[0])+ " \n"+ \
+                        str(df["MaxEclipseTimeUTC"].values[0])+ " \n"+ \
+                            "UTC":avg_times,
+                "Eclipse Day Power in Cricket Frequencies \nRelative to the Average Power of Two Non-Eclipse Days":eclipse_relative_power,
+                "One Relative Standard Error":relative_power_error,
+                "Two Relative Standard Errors":2.0*relative_power_error
+                }
+                )
+            if old_plots:
+                df_rel_power.to_csv(csv_6a_name, index=False)
+
+            ###########################################################################
+            # Create the site spreadsheet
+            if spreadsheets_folder:
+                if verbose: print(spreadsheets_folder)
+                interp_tdb_day_psd=np.interp(
+                    interp_freqs, freqs_out_tdb_wel, freqs_out_tdb_wel,
+                    left=freqs_out_tdb_wel[0],
+                    right=freqs_out_tdb_wel[-1])
+            
+                interp_odb_day_psd=np.interp(
+                    interp_freqs, freqs_out_odb_wel, odb_wav_psd_welch,
+                    left=odb_wav_psd_welch[0],
+                    right=odb_wav_psd_welch[-1])
+                            
+                spread_freqs=interp_freqs[indices1]
+                eclipse_rel_psd=interp_eclipse_day_psd[indices1]/avg_psd[indices1]
+                
+                cricket_avg_psd_std=avg_psd_std[indices1]
+                cricket_avg_psd=avg_psd[indices1]
+                cricket_rel_avg_psd=avg_psd[indices1]/avg_psd[indices1]
+                cricket_rel_avg_psd_std=avg_psd_std[indices1] / avg_psd[indices1]    
+
+                if verbose:
+                    print("Length of interp_eclipse_day_psd " +
+                          str(len(interp_eclipse_day_psd[indices1]))
+                          )
+                    print("Length of avg_psd[indices1] " +
+                          str(len(avg_psd[indices1]))
+                          )
+                    print("Length of cricket_avg_psd_std " +
+                          str(len(cricket_avg_psd_std))
+                          )
+                    print("Length of eclipse_rel_psd " +
+                          str(len(eclipse_rel_psd))
+                          )
+
+
+
+                number_of_stds=eclipse_rel_psd/cricket_rel_avg_psd_std
+
+                max_num_of_stds=[]
+                gt_2_stds=[]
+                max_stds=np.max(np.absolute(number_of_stds))
+                 
+                significant="N"
+                
+                print(max_stds)
+                m2=max_stds
+                print(m2)
+                
+                counter=0
+                for element in number_of_stds:
+                    if np.absolute(element) >= max_stds:
+                        temp1="Y"
+                        max_freq=spread_freqs[counter]/to_kHz
+                        rel_psd_max=eclipse_rel_psd[counter]
+                        max_rel_error=cricket_rel_avg_psd_std[counter]
+                        
+                    else: temp1="N"
+                    max_num_of_stds.append(temp1)
+                    if np.absolute(element) >= 2.0:
+                        temp2="Y"
+                        significant="Y"
+                    else: 
+                        temp2="N"
+                    gt_2_stds.append(temp2)
+                    counter+=1 
+
+
+                current_time = datetime.datetime.now()
+                # Format the current time as YYYY_MM_DD_hh_mm
+                formatted_time = current_time.strftime("%Y_%m_%d_%H_%M")
+
+                site_spreadsheet_name=os.path.join(spreadsheets_folder, 
+                                                   formatted_time+"_ESID#"+ESID+"_Relative_PSD_analysis.csv")
+                
+                mk_esid_site_psd_spreadsheet(spread_freqs/to_kHz, 
+                                             interp_tdb_day_psd[indices1]/to_kHz, 
+                                             interp_odb_day_psd[indices1]/to_kHz,
+                                             cricket_avg_psd,   
+                                             cricket_avg_psd_std,
+                                             cricket_rel_avg_psd_std, 
+                                             interp_eclipse_day_psd[indices1],  
+                                             eclipse_rel_psd,
+                                             number_of_stds,
+                                             max_num_of_stds, 
+                                             gt_2_stds,
+                                             outname=site_spreadsheet_name, 
+                                             Dictionary=False
+                                             )
+            
+            ###########################################################################
+            # Create or add to the relative_psd_master_analysis spreadsheet
+            if relative_psd_csv:
+                
+                mk_relative_psd_master_analysis(ESID, 
+                                                second_contact, 
+                                                third_contact,
+                                                eclipse_local_type, 
+                                                rel_psd_max,
+                                                max_freq,
+                                                max_rel_error,
+                                                max_stds,
+                                                significant,
+                                                m2,
+                                                outname=new_relative_psd_csv, 
+                                                Dictionary=False)
+            ###########################################################################
+            # Create the relative psd plot
+            if plot_5a_name:
+                
+                mk_rel_psd_plot(ESID, 
+                                second_contact,
+                                freqs_out_tdb_wel, 
+                                tdb_wav_psd_welch,
+                                freqs_out_odb_wel, 
+                                odb_wav_psd_welch, 
+                                freqs_out_ecl_wel, 
+                                eclipse_wav_psd_welch,
+                                cricket_freq_range, 
+                                plot_main_title=False,
+                                outname=plot_5a_name,
+                                verbose=verbose)  
+            ###########################################################################
+            # Create the output text
             out_text=str(ESID).zfill(3)+"," #"ESID,"
-            out_text=out_text+str(integrated_psd_odb_all)+"," #"All Frequencies: 4/6/2024 V^2,
-            out_text=out_text+str(integrated_psd_tdb_all)+"," #All Frequencies: 4/7/2024 V^2,"
-            out_text=out_text+str(average_V2_all)+"," #"All Frequencies: Average V^2 of 4/6 & 4/7,"
+            out_text=out_text+str(integrated_psd_odb_all)+"," #"All Frequencies: 4/6/2024 Pascals^2,
+            out_text=out_text+str(integrated_psd_tdb_all)+"," #All Frequencies: 4/7/2024 Pascals^2,"
+            out_text=out_text+str(average_V2_all)+"," #"All Frequencies: Average Pascals^2 of 4/6 & 4/7,"
             out_text=out_text+str(V2_std_all)+"," #"All Frequencies: Standard Deviation 4/6 & 4/7,"
-            out_text=out_text+str(integrated_psd_ecl_all)+"," #"All Frequencies: Eclipse 4/8/2024 V^2,"	
+            out_text=out_text+str(integrated_psd_ecl_all)+"," #"All Frequencies: Eclipse 4/8/2024 Pascals^2,"	
             out_text=out_text+str(std_dev_diff_all)+"," #"All Frequencies: Standard Deviation difference (Eclipse vs Average),"
             out_text=out_text+str(integrated_psd_tdb)+"," #"Cricket Frequencies: 4/6/2024 PSD,"
             out_text=out_text+str(integrated_psd_odb)+"," #"Cricket Frequencies: 4/7/2024 PSD,"
-            out_text=out_text+str(average_V2)+"," #"Cricket Frequencies: Average V^2 of 4/6 & 4/7,"
+            out_text=out_text+str(average_V2)+"," #"Cricket Frequencies: Average Pascals^2 of 4/6 & 4/7,"
             out_text=out_text+str(V2_std)+"," #"Cricket Frequencies: Standard Deviation 4/6 & 4/7,"
-            out_text=out_text+str(integrated_psd_ecl)+"," #"Cricket Frequencies: Eclipse 4/8/2024 V^2," 
+            out_text=out_text+str(integrated_psd_ecl)+"," #"Cricket Frequencies: Eclipse 4/8/2024 Pascals^2," 
             out_text=out_text+str(std_dev_diff)#"Cricket Frequencies: Standard Deviation difference (Eclipse vs Average)") 
             #out_text=out_text+
             out_text=out_text+"\n"                  
@@ -934,9 +1448,10 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
             one_day_before_str=eclipse_time_trio["one_day_before_start_time"].strftime("%Y-%B-%d_%H%M%S")+"UTC".replace(" ", "")
             two_days_before_str=eclipse_time_trio["two_days_before_start_time"].strftime("%Y-%B-%d_%H%M%S")+"UTC".replace(" ", "")
             eclipse_date_str=eclipse_info["FirstContactDate"]
+            
             if eclipse_files: 
                 if verbose: print("youtube_folder= "+youtube_folder)
-                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+eclipse_start_str+"_eclipse_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+eclipse_start_str+"_eclipse"
                 clip_title=clip_basename.replace('_', ' ')
                 if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
@@ -968,7 +1483,7 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
             if two_days_before_files :
                 eclipse_type="Non-Eclipse-Day"
                 if verbose: print("youtube_folder= "+youtube_folder)
-                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+two_days_before_str+"_two_days_before_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+two_days_before_str+"_two_days_before"
                 clip_title=clip_basename.replace('_', ' ')
                 if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
@@ -1000,7 +1515,7 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
 
             if one_day_before_files: 
                 eclipse_type="Non-Eclipse-Day"
-                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+one_day_before_str+"_one_day_before_3minute"
+                clip_basename="ESID#"+str(ESID)+"_"+eclipse_year+"_"+eclipse_type+"_"+one_day_before_str+"_one_day_before"
                 clip_title=clip_basename.replace('_', ' ')
                 if verbose: print("clip_basename= "+clip_basename)
                 if verbose: print("clip_title= "+clip_title)
@@ -1488,8 +2003,14 @@ def compute_average_and_std(x1, y1, x2, y2):
     x_avg = np.union1d(x1, x2)
 
     # Interpolate y-values for both datasets onto the common x3 values
-    interp_y1 = interp1d(x1, y1, kind='linear', fill_value='extrapolate')
-    interp_y2 = interp1d(x2, y2, kind='linear', fill_value='extrapolate')
+    interp_y1 = interp1d(x1, y1, 
+                         kind='linear', fill_value=(y1[0],y1[-1]),
+                         bounds_error=False)
+    #fill_value='extrapolate')
+    interp_y2 = interp1d(x2, y2, 
+                         kind='linear', fill_value=(y2[0],y2[-1]),
+                         bounds_error=False)
+    #fill_value='extrapolate')
     
     y1_interp = interp_y1(x_avg)
     y2_interp = interp_y2(x_avg)
@@ -1518,9 +2039,9 @@ def compute_average_and_std_3_arrays(x1, y1, x2, y2, x3, y3):
     x_avg = np.union1d(np.union1d(x1, x2), x3)
 
     # Interpolate y-values for all three datasets onto the common x_avg values
-    interp_y1 = interp1d(x1, y1, kind='linear', fill_value='extrapolate')
-    interp_y2 = interp1d(x2, y2, kind='linear', fill_value='extrapolate')
-    interp_y3 = interp1d(x3, y3, kind='linear', fill_value='extrapolate')
+    interp_y1 = interp1d(x1, y1, kind='linear', fill_value=(y1[0],y1[-1]))#fill_value='extrapolate')
+    interp_y2 = interp1d(x2, y2, kind='linear', fill_value=(y1[0],y1[-1]))#fill_value='extrapolate')
+    interp_y3 = interp1d(x3, y3, kind='linear', fill_value=(y1[0],y1[-1]))#fill_value='extrapolate')
     
     y1_interp = interp_y1(x_avg)
     y2_interp = interp_y2(x_avg)
@@ -1897,3 +2418,340 @@ def does_eclipse_data_exist(folder, eclipse_data_csv=None, verbose=None, UTC_max
         data_check_dict=None
 
     return data_check_dict
+
+def acoustic_power(sample_rate, data):
+    """
+    Calculates the power of the signal.
+
+    Args:
+    - Data (np.array): amplitude of signal as given from wavfile.read.
+    - sample_rate (float): Data sample rate
+
+    Returns:
+    - Time (np.array): Array of seconds from the start of the wave file
+    - data np.array): Power of the signal at all frequencies at that time.
+    """
+    # Handle stereo files (convert to mono if necessary)
+    if len(data.shape) > 1:
+        data = np.mean(data, axis=1)  # Average channels to get mono
+
+    # Calculate the time axis in seconds
+    time = np.linspace(0, len(data) / sample_rate, num=len(data))
+
+    # Calculate the power of the signal (squared amplitude)
+    power = data**2
+
+    return time, data
+
+def power_in_frequency_range_welch(sample_rate, data, freq_range, 
+                                        segment_duration=1):
+                
+    """
+    Calculates the power of the signal within a specific frequency range
+    as determined by Welch's method, as a function of time.
+
+    Args:
+    - sample_rate (float): Sample rate of the recording
+    - data (np.array): data from the .WAV file
+    - freq_range (float list): frequency range in Hz.
+    - segment_duration (float): Duration (in seconds) for each segment used by Welch's method.
+
+    Returns:
+    - time_bins (np.array)
+    - power_bins (np.array)
+    """
+    # Read the WAV file
+    #sample_rate, data = wavfile.read(file_path)
+
+    x1=min(freq_range)
+    x2=max(freq_range)
+
+    # Handle stereo files by converting them to mono (averaging channels)
+    if len(data.shape) > 1:
+        data = np.mean(data, axis=1)
+
+    # Define the segment length in samples for Welch's method
+    segment_length = int(segment_duration * sample_rate)
+
+    # Initialize time bins and power storage
+    time_bins = []
+    power_bins = []
+
+    # Split the signal into overlapping segments for Welch's method
+    for i in range(0, len(data) - segment_length, segment_length):
+        segment = data[i:i + segment_length]
+
+        # Compute the power spectral density (PSD) using Welch's method
+        freqs, psd = scipy.signal.welch(segment, fs=sample_rate, nperseg=segment_length)
+
+        # Extract power within the desired frequency range
+        freq_mask = (freqs >= x1) & (freqs <= x2)
+        power_in_range = np.sum(psd[freq_mask])
+
+        # Store the time (center of the segment) and power value
+        segment_time = (i + segment_length / 2) / sample_rate  # Convert sample index to seconds
+        time_bins.append(segment_time)
+        power_bins.append(power_in_range)
+
+    return time_bins, power_bins
+
+def mk_esid_site_psd_spreadsheet(freqs, tdb_psd_v_freqs, odb_psd_v_freqs,avg_psd_v_freqs, 
+                                 std_error,rel_std_error, eclipse_psd_v_freqs, 
+                                 eclipse_psd_v_freqs_rel_to_average, 
+                                 number_of_stds,max_num_of_stds, 
+                                 gt_2_stds, 
+                                 outname=False, Dictionary=False
+                                 ):
+    """
+    """
+    dict={
+        "Frequency [kiloHertz (kH)]":freqs ,
+        "Power Spectral Density (PSD) [Amplitude*Amplitude/(kH)] on 10/12/2024":tdb_psd_v_freqs,
+        "PSD on 10/13/2024": odb_psd_v_freqs,
+        "Average of 10/12/2024 & 10/13/2024 PSD ((B+C)/2)":avg_psd_v_freqs,
+        "Standard Error of 10/12/2024 & 10/13/2024 PSD [Amplitude*Amplitude/(kH)]": std_error,
+        "Relative Standard Error of 10/12/2024 & 10/13/2024 PSD (E/D)[No units]":rel_std_error,
+        "Eclipse Day (10/14/2024) PSD [Amplitude*Amplitude/(kH)]":eclipse_psd_v_freqs,
+        "Eclipse Day PSD Relative to Non-Eclipse Day Average (G/D) [No Units]": eclipse_psd_v_freqs_rel_to_average,
+        "Number of Standard Deviations the Relative PSD is from the Average of " + \
+            "10/12/2024 & 10/13/2024 PSD ((H - D)/F)":number_of_stds,
+        "Is Maximum Number of Standard Deviations (+/-)from the Average? (Y/N)":max_num_of_stds,
+        "Is Greater than the +/- 2 Standard Deviation Definition of Scientifically Significant? (Y/N)":gt_2_stds
+    }
+
+    df=pd.DataFrame(dict)
+
+    if outname:
+        df.to_csv(outname, index=False)
+
+    if Dictionary:
+        return dict
+    else:
+        return df
+
+def mk_relative_psd_master_analysis(ESID, 
+                                    max_start, 
+                                    max_end, 
+                                    eclipse_local_type,
+                                    rel_psd_max, 
+                                    max_freq,
+                                    max_rel_error, 
+                                    number_of_stds,
+                                    significant,
+                                    m2,
+                                    outname=False, 
+                                    Dictionary=False
+                                    ):
+    
+    """
+    """
+    
+    print("Printing shapes")
+    print(np.shape(ESID))
+    print(np.shape(max_start))
+    print(np.shape(max_end))
+    print(np.shape(rel_psd_max)) 
+    print(np.shape(max_freq))
+    print(np.shape(max_rel_error))
+    print(np.shape(number_of_stds))
+    print(np.shape(significant))
+    print("End printing shapes")
+
+    dict={
+        "ESID":str(ESID).zfill(3),
+        "Start Time (UTC)":max_start,
+        "End Time (UTC)":max_end,
+        "Eclipse Type":eclipse_local_type,
+        "10/14/2023 Maximum Relative PSD (Maximum of Site Spreadsheet Column I) [No Units]":rel_psd_max,
+        "Frequency of Maximum Relative PSD Difference on 10/14/2023 [kiloHertz]":max_freq,
+        "Relative Error of the Two Days Before at the Frequency of Maximum Relative PSD Difference [No Units]":max_rel_error,
+        "Maximum Relative PSD on 10/14/2023 / Relative Error of the Two Days Before [No Units]":number_of_stds,
+        "Is this a scientifically defined significant change (Is H > 2 or H < -2?) [Y/N]":significant #, "M2":m2
+        }
+
+
+    df=pd.DataFrame(dict, index=[0])
+
+    if outname:
+        if os.path.exists(outname):
+            df.to_csv(outname, 
+                      mode="a", 
+                      index=False, 
+                      header=False
+                      )
+        else:
+            df.to_csv(outname, 
+                      index=False, 
+                      header=True
+                      )
+
+    if Dictionary:
+        return dict
+    else:
+        return df
+    
+def mk_rel_psd_plot(ESID, eclipse_day_string,
+                    tdb_freqs_out, tdb_psd,
+                    odb_freqs_out, odb_psd, 
+                    ecl_freqs, ecl_psd, 
+                    freqs_range, 
+                    plot_main_title=False,
+                    outname=False,
+                    verbose=False,
+                    Hertz=False):
+    """
+    """
+    ###########################################################################
+    #Local variable definitions
+    if not plot_main_title:
+        plot_main_title="Relative Power Spectral Density at Site #"
+        plot_main_title=plot_main_title+str(ESID).zfill(3)+"\n on "
+        plot_main_title=plot_main_title+eclipse_day_string+" Eclipse Maximum Time vs.\n"
+        plot_main_title=plot_main_title+"Same Time Trame on 2 Non-Eclipse Days"
+    
+    if not Hertz:
+        to_kHz=1000
+        x_axis_freq_label="Frequency kiloHertz [Cricket Frequencies (2-8 kHz)]"
+
+    else:
+        to_kHz=1
+        x_axis_freq_label="Frequency Hertz [Cricket Frequencies (2000-8000 Hz)]"
+
+    label1="Eclipse Day Relative PSD"
+    label2="Average of 2 Non-Eclipse Days Relative PSD"
+    label3="2 Relative Standard Errors"
+    y_axis_label="Relative Power Spectral Density (RPSD)"
+    ###########################################################################
+    #Calculate and plot the Relative PSD in the frenquency range
+    #relative_psd()
+
+    #Calculat the average of the two day before and one day before 
+    # recordings and the common interpreted frequencies of the 
+    # average.
+    interp_freqs, avg_psd, avg_psd_std=compute_average_and_std(
+                 tdb_freqs_out, tdb_psd, 
+                 odb_freqs_out, odb_psd)
+    
+    # Interpolate ecl_psd values to the interp_freqs axis
+    interp_eclipse_day_psd=np.interp(
+        interp_freqs, 
+        ecl_freqs, 
+        ecl_psd,
+        left=ecl_psd[0],
+        right=ecl_psd[-1])
+    
+    # Use np.where to find the indices of elements between the range  (inclusive)
+    indices1 = np.where(
+        (interp_freqs >= np.min(freqs_range)) 
+        & (interp_freqs <= np.max(freqs_range))
+        )[0]
+    
+    freqs_in_range=interp_freqs[indices1]
+    avg_psd=avg_psd[indices1]
+    avg_psd_std=avg_psd_std[indices1]
+    twice_standard_error=2.0 * avg_psd_std    
+    relative_error=avg_psd_std/avg_psd
+    relative_2_times_error=twice_standard_error/avg_psd
+    interp_eclipse_day_psd=interp_eclipse_day_psd[indices1]
+
+    relative_psd=interp_eclipse_day_psd/avg_psd
+
+    one_line=np.ones(len(relative_psd))
+
+    fig=plt.figure()
+    plt.title(plot_main_title)
+
+    # Plot the average with standard deviation error bars
+
+    # Overplot twice the standard error
+    plt.errorbar(freqs_in_range/to_kHz, one_line, 
+                 yerr=relative_2_times_error, 
+                 fmt='none',
+                 label=label3,
+                 capsize=4.5,
+                 alpha=0.7, 
+                 ecolor='red',
+                 )
+            
+    # Overplot one standard error
+    plt.errorbar(freqs_in_range/to_kHz, one_line, 
+                 yerr=relative_error, 
+                 fmt='none', 
+                 ecolor='red', 
+                 elinewidth=2, 
+                 capsize=4,
+                 alpha=0.7
+                 )
+    
+    #Plot a line showing all ones.
+    plt.plot(freqs_in_range/to_kHz, 
+             one_line, 
+             color='blue', 
+             linestyle=':', 
+             linewidth=2.5, 
+             label=label2
+             )       
+    # Overlay the eclipse day data  with a different style
+    plt.plot(freqs_in_range/to_kHz, relative_psd, 
+             label=label1, 
+             color='orange', 
+             linewidth=2.5, 
+             linestyle='solid'
+             )
+            
+    # Set the y-axis to semilog scale
+    #plt.yscale('log')
+    #set the range
+    plt.xlim(freqs_range[0]/to_kHz, freqs_range[1]/to_kHz)
+           
+    ymax=1.3*np.max([np.max(relative_psd), 
+                      np.max(np.absolute(1.0+relative_2_times_error))]
+                      )
+    ymin=np.min([np.min(relative_psd), 
+                      np.min(np.absolute(1.0-relative_2_times_error))]
+                      )-1.3
+
+    plt.ylim(ymin, ymax)
+    plt.xlabel(x_axis_freq_label)
+    plt.ylabel(y_axis_label)
+    plt.legend(loc='upper center', shadow=True, fontsize='large')
+    
+    if outname: 
+        plt.savefig(outname)
+        if verbose: print("Saved file "+outname)
+     
+    plt.close(fig)
+    return plt
+
+def get_audiomoth_temperature(directory,):
+    import re
+    import csv
+    from os import listdir
+    from os.path import isfile, join
+    from datetime import datetime, timezone, timedelta
+    directory = "."
+    COMMENT_START = 0x38
+    COMMENT_LENGTH = 0x180
+    files = [f for f in listdir(directory) if isfile(join(directory, f)) and ".WAV" in f]
+    
+    with open("comments.csv", "w", newline="") as csvfile:
+        csvWriter = csv.writer(csvfile, delimiter=",")
+        csvWriter.writerow(["Index", "File", "Time", "Battery (V)", "Temperature (C)", "Comment"])
+        
+        for i, fi in enumerate(sorted(files)):
+            with open(join(directory, fi), "rb") as f:
+            # Read the comment out of the input file
+                f.seek(COMMENT_START)
+                comment = f.read(COMMENT_LENGTH).decode("ascii").rstrip("\0")
+                # Read the time and timezone from the header
+                ts = re.search(r"(\d\d:\d\d:\d\d \d\d/\d\d/\d\d\d\d)", comment)[1]
+                tz = re.search(r"\(UTC([-|+]\d+)?:?(\d\d)?\)", comment)
+                hrs = 0 if tz[1] is None else int(tz[1])
+                mins = 0 if tz[2] is None else -int(tz[2]) if hrs < 0 else int(tz[2])
+                timestamp = datetime.strptime(ts, "%H:%M:%S %d/%m/%Y")
+                timestamp = timestamp.replace(tzinfo=timezone(timedelta(hours=hrs, minutes=mins)))
+                # Read the battery voltage and temperature from the header
+                battery = re.search(r"(\d\.\d)V", comment)[1]
+                temperature = re.search(r"(-?\d+\.\d)C", comment)[1]
+                # Print the output row
+                csvWriter.writerow([i, fi, timestamp.isoformat(), battery, temperature, comment])

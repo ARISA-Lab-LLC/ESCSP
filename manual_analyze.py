@@ -1,4 +1,4 @@
-#es_analyze.py
+#manual_analyze.py
 ##########################################################
 #Import Libaries
 from escsp import *
@@ -78,8 +78,17 @@ if Total:
     column_text=column_text+"\n"
 
 
+spreadsheets_folder=os.path.join(top_level_directory, "Spreadsheets")
+wave_folder=os.path.join(top_level_directory, "Files_to_Analyze")
+if not os.path.exists(wave_folder):
+    os.system("mkdir "+wave_folder)
+
 plots_folder=os.path.join(top_level_directory, "Plots") 
-outfile=os.path.join(top_level_directory,"Spreadsheets","ES_data_test.csv")
+outfile=os.path.join(spreadsheets_folder,"ES_data_test.csv")
+relative_psd_csv_file=os.path.join(spreadsheets_folder,"Relative_PSD_data.csv")
+new_relative_psd_csv=os.path.join(spreadsheets_folder,"New_Relative_PSD_data.csv")
+if os.path.exists(new_relative_psd_csv):
+    os.system("rm "+new_relative_psd_csv)
 folders = get_es_folder_list(top_level_directory,  split = 1)
 filelist=outfile
 
@@ -90,15 +99,10 @@ filelist=outfile
 ##########################################################
 if verbose : print(folders)
 
-
-counter = 0
-#csv files for (V**2 diff)/std
-#Make a unique PSD analysis file
-# Get the current time
 current_time = datetime.datetime.now()
 # Format the current time as YYYY_MM_DD_hh_mm
 formatted_time = current_time.strftime("%Y_%m_%d_%H_%M")
-psd_file=os.path.join(top_level_directory, "Spreadsheets", formatted_time+"_PSD_analysis.csv")
+psd_file=os.path.join(spreadsheets_folder, formatted_time+"_PSD_analysis.csv")
 if os.path.exists(psd_file):
      os.system("rm "+psd_file)
 
@@ -107,14 +111,22 @@ f.write(column_text)
 #f.close()
 ##########################################################
 
-
 for ESID in ESID_list:
     folder=os.path.join("/media/tracy/ESCSPA00/Annular_Analysis_Data","ESID#"+ESID+"_AnnularEclipse_AudioMothTimeChime_Split" )
     print("Current Folder: ")
     print(folder)
     print(" ")
     #psd_file=os.path.join(top_level_directory, "Spreadsheets", "PSD_analysis.csv")
-    psd_text=escsp_get_psd(folder, plots_folder, filelist=None, eclipse_type = eclipse_type, verbose=1, eclipse_data_csv=eclipse_data_csv)
+    psd_file=os.path.join(spreadsheets_folder, "old_"+formatted_time+"ESID#"+ESID+"_PSD_analysis.csv")
+
+    psd_text=escsp_get_psd(folder, plots_folder, filelist=None, 
+                           eclipse_type = eclipse_type, verbose=1, 
+                           eclipse_data_csv=eclipse_data_csv,
+                           relative_psd_csv=relative_psd_csv_file,
+                           new_relative_psd_csv=new_relative_psd_csv,
+                           spreadsheets_folder=spreadsheets_folder,
+                           wave_folder=wave_folder
+                           )
     #f = open(psd_file, "a")
     f.write(psd_text)
     
