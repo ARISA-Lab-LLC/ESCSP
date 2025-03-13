@@ -9,17 +9,19 @@ import glob
 directory_in="/media/tracy/ESCSPA00/2024_Total_Raw_Data/"
 #directory_in="/media/tracy/NEW_A1/2023_Annular_Raw_Data/"
 directory_out="/media/tracy/ESCSPzip01/2024_Total_Raw_Data_ZIP/"
+directory_out="/media/tracy/NTFS_Test/Zenodo_test/2024_Total_Raw_Data_ZIP/"
 #directory_out="/media/tracy/ESCSPzip01/2023_Annular_Raw_Data_ZIP/"
 zip_suffix=".zip "
 zip_suffix=".zip "
 
 #Define the folders to be Zipped
-folders=glob.glob(os.path.join(directory_in,"ESID#*"))
+
 #folders=[ "ESID#001",
 #          "ESID#002",
 #          "ESID#004",
 #          "ESID#504",
 #          "ESID#211"]
+folders=["ESID#053"]
 # Test
 cwd = os.getcwd()
 
