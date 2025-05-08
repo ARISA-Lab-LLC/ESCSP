@@ -21,7 +21,12 @@ zip_suffix=".zip "
 #          "ESID#004",
 #          "ESID#504",
 #          "ESID#211"]
-folders=["ESID#053"]
+#folders=["ESID#053"]
+folders=["ESID#064",
+         "ESID#068",
+         "ESID#071"]
+
+
 # Test
 cwd = os.getcwd()
 
@@ -36,7 +41,7 @@ for folder in folders:
             out_path=os.path.join(directory_out, folder.split("/")[-1]+zip_suffix)
             print("out_path= "+out_path)
 
-            zip_command="zip -r " 
+            zip_command="zip -r -0" 
             zip_command=zip_command+out_path+ " "+folder
             zip_command=zip_command+" --exclude .Trash* --exclude .Trash*/* --exclude .Spotlight*"
             zip_command=zip_command+" --exclude .Spotlight*/* "

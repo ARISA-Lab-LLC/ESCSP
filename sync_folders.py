@@ -3,20 +3,12 @@ import os
 import shutil
 import glob
 
-df_out_name="missing_data_report.csv"
-df_in_name="missing_data_to_pease.csv"
-df_in = pd.read_csv(df_in_name)
 
-
-missing_ESIDs=df_in["AudioMoth ES ID Number"]
-top_in_dir1="/media/tracy/ESCSPA00/Total_Raw_Data"
+top_in_dir="/media/tracy/ESCSPA00/Total_Raw_Data"
 top_in_dir2="/media/tracy/ESCSPA01/Total_Raw_Data"
 top_out_dir="/media/tracy/ESCSPB02/Total_Raw_Data"
 
-path_exists=[]
-number_of_files=[]
-success=[]
-does_exist_binary_list=[]
+
 if not os.path.isdir(top_out_dir):
     os.system("mkdir "+top_out_dir)
 

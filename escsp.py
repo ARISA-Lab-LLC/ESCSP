@@ -3,12 +3,13 @@ if __name__ == "__main__":
 
 """escsp.py Library for the Eclipse Soundscapes: Citizen Science Project"""
 ###########################################################################
+#Fiducial
 #Import Libraries section
 import numpy as np 
-# for visualizing the data 
 #file handling and misc.
 import os  
 import datetime
+import shutil 
 import pandas as pd
 from natsort import natsorted
 import glob
@@ -29,6 +30,7 @@ from moviepy import *
 import re
 import scipy
 import pytz
+import hashlib
 ###########################################################################
 #Global Variables section
 user_images=None
@@ -39,6 +41,31 @@ privacyStatus="private"
 AM_Spreadsheet=os.getenv("total_redacted_AM_spreadsheet")
 ###########################################################################
 #Function Definitions Section
+def compute_md5_hash(filename):
+    """
+    Compute the MD5 hash of a file's contents.
+
+    Args:
+        filename (str): Path to the file to hash.
+
+    Returns:
+        str: MD5 hash as a hexadecimal string.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        IOError: If there's an error reading the file.
+    """
+    if not os.path.isfile(filename):
+        raise FileNotFoundError(f"File does not exist: {filename}")
+
+    hash_md5 = hashlib.md5()
+
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+
+    return hash_md5.hexdigest()
+
 def mk_eclipse_data_csv(folder):
     if os.path.isdir(folder):
          AM_df=pd.read_csv(AM_Spreadsheet)
@@ -230,7 +257,7 @@ def escsp_get_eclipse_time_trio(eclipse_info, verbose=False):
         second_contact=eclipse_info["FirstContactDate"] + " " +eclipse_info["SecondContactTimeUTC"] 
         if verbose: print("eclipse_type: " + eclipse_type)
          
-        if verbose: print(second_contact)
+        if verbose: print("Second contact: "+second_contact)
         eclipse_start_time = datetime.datetime.strptime(second_contact, time_format) 
 #set the eclipse end time
         third_contact = eclipse_info["FirstContactDate"] + " " +eclipse_info["ThirdContactTimeUTC"] 
@@ -364,6 +391,48 @@ def combine_wave_files(files, start_time=False, end_time=False, verbose=None):
 
     return audio, Fs_original
 
+
+
+def convert_to_utc(time_str, timezone_str, time_format="%Y-%m-%d %H:%M:%S"):
+    """
+    Convert a time from a specified timezone to UTC.
+
+    Args:
+    - time_str (str): The time string to convert.
+    - timezone_str (str): The timezone of the input time string (e.g., 'America/New_York').
+        'America/New_York',
+        'US/Alaska'
+        'US/Aleutian'
+        'US/Arizona'
+        'US/Central'
+        'US/East-Indiana'
+        'US/Eastern'
+        'US/Hawaii'
+        'US/Indiana-Starke'
+        'US/Michigan'
+        'US/Mountain'
+        'US/Pacific'
+        'US/Samoa' 
+    - time_format (str): The format of the input time string. Default is "%Y-%m-%d %H:%M:%S".
+
+    Returns:
+    - str: The converted time in UTC as a string in the same format as the input.
+    """
+    # Create a timezone object for the specified timezone
+    local_timezone = pytz.timezone(timezone_str)
+
+    # Parse the input time string into a naive datetime object
+    naive_datetime = datetime.datetime.strptime(time_str, time_format)
+
+    # Localize the naive datetime to the specified timezone
+    localized_datetime = local_timezone.localize(naive_datetime)
+
+    # Convert the localized datetime to UTC
+    utc_datetime = localized_datetime.astimezone(pytz.utc)
+
+    # Return the UTC time
+    return utc_datetime
+
 def adjust_am_datetime(files, start_time,  time_zone_value, 
                        time_str="%Y-%m-%d %H:%M:%S", 
                        updated_folder=False, 
@@ -377,6 +446,18 @@ def adjust_am_datetime(files, start_time,  time_zone_value,
     - updated_folder (str): Folder to copy the WAV file to with the updated timestamp
     - verbose
     - 
+        'US/Alaska'
+        'US/Aleutian'
+        'US/Arizona'
+        'US/Central'
+        'US/East-Indiana'
+        'US/Eastern'
+        'US/Hawaii'
+        'US/Indiana-Starke'
+        'US/Michigan'
+        'US/Mountain'
+        'US/Pacific'
+        'US/Samoa' 
 
     Returns:
     - 
@@ -427,6 +508,7 @@ def adjust_am_datetime(files, start_time,  time_zone_value,
                         os.makedirs(updated_folder)
                     command_line="cp "+file+" "+os.path.join(updated_folder, updated_file_name)
                     os.system(command_line)
+                    os.system("cp CONFIG.txt "+updated_folder)
                     if verbose:
                         print("Original_file_name: " + file)
                         print("Saved file: "+os.path.join(updated_folder, updated_file_name))
@@ -487,6 +569,100 @@ def filename_2_ESID(file, verbose=False):
              
    
     return str(esid).zfill(3)
+
+def average_functions(x1, y1, x2, y2):
+    """
+    Calculate the average of two functions given x and y values for each.
+    
+    Args:
+    - x1, y1 (array-like): The x and y values of the first function.
+    - x2, y2 (array-like): The x and y values of the second function.
+    
+    Returns:
+    - (numpy.ndarray, numpy.ndarray): The x values and the averaged y values.
+    """
+    # Ensure the input arrays are numpy arrays
+    x1 = np.array(x1)
+    y1 = np.array(y1)
+    x2 = np.array(x2)
+    y2 = np.array(y2)
+    
+    # Find common x values (this can be adjusted depending on the application)
+    x_common = np.union1d(x1, x2)
+    
+    # Interpolate y values to the common x values
+    interp_y1 = scipy.interpolate.interp1d(x1, y1, kind='linear', fill_value='extrapolate')
+    interp_y2 = scipy.interpolate.interp1d(x2, y2, kind='linear', fill_value='extrapolate')
+    
+    y1_common = interp_y1(x_common)
+    y2_common = interp_y2(x_common)
+    
+    # Compute the element-wise average
+    avg_y_common = (y1_common + y2_common) / 2
+    
+    return x_common, avg_y_common
+
+def standard_deviation_of_3_functions(x1, y1, x2, y2, x3, y3): 
+     """ Calculate the standard deviation of three functions given x and y values for each. 
+     Args: 
+        - x1, y1 (array-like): The x and y values of the first function. 
+        - x2, y2 (array-like): The x and y values of the second function. 
+        - x3, y3 (array-like): The x and y values of the third function. 
+     
+     Returns: - (numpy.ndarray, numpy.ndarray): 
+     The common x values and the standard deviation of the y values at each common x value. 
+     """ 
+     
+     # Ensure the input arrays are numpy arrays 
+     x1 = np.array(x1) 
+     y1 = np.array(y1) 
+     x2 = np.array(x2) 
+     y2 = np.array(y2) 
+     x3 = np.array(x3) 
+     y3 = np.array(y3) 
+     # Find common x values (this can be adjusted depending on the application) 
+     x_common = np.union1d(np.union1d(x1, x2), x3) 
+     # Interpolate y values to the common x values 
+     interp_y1 = scipy.interpolate.interp1d(x1, y1, kind='linear', fill_value='extrapolate') 
+     interp_y2 = scipy.interpolate.interp1d(x2, y2, kind='linear', fill_value='extrapolate') 
+     interp_y3 = scipy.interpolate.interp1d(x3, y3, kind='linear', fill_value='extrapolate') 
+     y1_common = interp_y1(x_common) 
+     y2_common = interp_y2(x_common) 
+     y3_common = interp_y3(x_common) 
+     # Stack the y values to form a 2D array where each row corresponds to an x value 
+     y_values = np.vstack((y1_common, y2_common, y3_common)) 
+     # Compute the standard deviation across the rows (for each x value) 
+     std_y_common = np.std(y_values, axis=0) 
+     
+     return x_common, std_y_common
+
+def standard_deviation_of_2_functions(x1, y1, x2, y2): 
+     """ Calculate the standard deviation of three functions given x and y values for each. 
+     
+     Args: 
+        - x1, y1 (array-like): The x and y values of the first function. 
+        - x2, y2 (array-like): The x and y values of the second function. 
+
+     Returns: - (numpy.ndarray, numpy.ndarray): 
+     The common x values and the standard deviation of the y values at each common x value. """ 
+     # Ensure the input arrays are numpy arrays 
+     x1 = np.array(x1) 
+     y1 = np.array(y1) 
+     x2 = np.array(x2) 
+     y2 = np.array(y2) 
+     # Find common x values (this can be adjusted depending on the application) 
+     x_common = np.union1d(x1, x2)
+     # Interpolate y values to the common x values 
+     interp_y1 = scipy.interpolate.interp1d(x1, y1, kind='linear', fill_value='extrapolate') 
+     interp_y2 = scipy.interpolate.interp1d(x2, y2, kind='linear', fill_value='extrapolate') 
+     y1_common = interp_y1(x_common) 
+     y2_common = interp_y2(x_common) 
+     # Stack the y values to form a 2D array where each row corresponds to an x value 
+     y_values = np.vstack((y1_common, y2_common)) 
+     # Compute the standard deviation across the rows (for each x value) 
+     std_y_common = np.std(y_values, axis=0) 
+     
+     return x_common, std_y_common
 
 def escsp_get_psd(folder, plots_folder, filelist=None, 
                   eclipse_type = "Total", verbose=False, 
@@ -2755,3 +2931,7 @@ def get_audiomoth_temperature(directory,):
                 temperature = re.search(r"(-?\d+\.\d)C", comment)[1]
                 # Print the output row
                 csvWriter.writerow([i, fi, timestamp.isoformat(), battery, temperature, comment])
+
+
+
+t="testtest"
