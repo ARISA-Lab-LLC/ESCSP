@@ -1,0 +1,31 @@
+Instructions:
+    Once completed and submitted to the Git repository, fill in the 'Status:' 
+    'Date implemented:' and Implemented by:' then cut and paste the entry below the 
+    incomplete entries so that the updates that still need to be done are at the top, 
+    then the ones completed are in descending time order.
+
+
+
+Alter escsp_read_eclipse_csv to autocorrect for row major files and return column
+    major files.  Also take into account the "ESID" vs 'AudioMoth ES ID Number' 
+    discrepency.
+
+    Status: In Progress
+    Date implemented:
+    Implemented by:
+
+Some functions take eclipse info as a dict named eclipse_info and some use 
+    a DataFrame named df.  Make more consistent by having all codes use the 
+    data_frame to be named eclipse_info_df.
+
+    Status: Not Started
+    Date implemented:
+    Implemented by:
+
+Standardize Docstrings
+    Choices are  reST, Google, or NumPy.  Which one doesn't seem to matter
+    as they can all be read by Sphinx, but it should be consisten throughout.
+
+    Status: Not Started
+    Date implemented:
+    Implemented by:
