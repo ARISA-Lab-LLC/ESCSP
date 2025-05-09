@@ -26,7 +26,8 @@ from scipy.misc import derivative
 from scipy.interpolate import interp1d
 import copy
 #import moviepy
-from moviepy import *
+import moviepy
+
 import re
 import scipy
 import pytz
@@ -68,10 +69,17 @@ def compute_md5_hash(filename):
 
 def mk_eclipse_data_csv(folder):
     if os.path.isdir(folder):
-         AM_df=pd.read_csv(AM_Spreadsheet)
-         ESID=filename_2_ESID(folder)
-         row = AM_df[AM_df['AudioMoth ES ID Number'] == ESID]
-         eclipse_data=row[['AudioMoth ES ID Number', 
+        AM_df=pd.read_csv(AM_Spreadsheet)
+
+        column_names=list(df)
+        if 'ESID' not in column_names:
+            ESID_key='AudioMoth ES ID Number'
+        else:
+            ESID_key='ESID'
+
+        ESID=filename_2_ESID(folder)
+        row = AM_df[AM_df[ESID_key] == ESID]
+        eclipse_data=row[['AudioMoth ES ID Number', 
                            "Latitude",
                            "Longitude",
                            "Eclipse Type",
@@ -187,68 +195,154 @@ def read_escsp_setup():
 
     return escsp_info
 
-def escsp_read_eclipse_csv(eclipse_data_csv, verbose=False, ESID=False):
+def escsp_read_eclipse_csv(eclipse_data_csv, verbose=False, ESID=False, dictionary=False):
     """
-    Extracts the row from a CSV file where the 'AudioMoth ES ID Number' matches a given string,
-    and returns the columns as a dict 
+    Extracts the row from a CSV file where the 'AudioMoth ES ID Number' or 'ESID' matches a given string,
+    and returns the columns as a dictionary 
+
+    Due to a change in Eclipse CSV file formats, older Eclipse CSV files are row major
+    instead of column major.  This function takes the csv file path and returns a Pandas
+    dataframe with column headers.  
+
+    Also has the ESID # stored in a key called "ESID" even though some files have 
+    the header listed as 'AudioMoth ES ID Number' 
 
     Args:
-    - csv_file (str): Path to the CSV file.
-    - esid_string (str): The ESID string to match.
+        csv_file (str): Path to the CSV file.
+        
+        ESID (str) Optional : The ESID string to match.
+        
+        verbose (bool) Optional: If set print statements are activated to monitor
+            the function's progress.
+
+        dictionary (bool) Optional: If set the function returns a A ditionary with keys ==  column headers
+            instead of a Pandas DataFrame
+    
+
     
     Returns:
-    - eclipse_info (dict): A ditionary containing the matching row(s), or None alse if no match is found."""
-    eclipse_info=None
-    df=None
+        Default: 
+        eclipse_info_df (pandas dataframe): eclipse info with column headers
+        
+        If dictionary == True:
+            eclipse_info (dictionary): A ditionary with keys ==  column headers
 
+        If ESID !=False: only the row matching that ESID# will be extracted.
+            
+        On Error:
+            If no match is found: None 
+    """
+    eclipse_info = None
+    eclipse_info_df = None
+    matching_row = None
+    Fail=False
+    ESID_key="ESID"
     if os.path.isfile(eclipse_data_csv) :
-        if verbose: print("escsp_read_eclipse_csv success! " + eclipse_data_csv) 
-        if verbose:
-            print("Type ESID= "+str(type(ESID)))
-            print("ESID= "+str(ESID))
+        if verbose: print("eclipse data csv exists! " + eclipse_data_csv) 
+        
+        # Read the CSV file into a DataFrame
+        eclipse_info_df=pd.read_csv(eclipse_data_csv, header=[0])
+        if verbose: 
+            print("Type eclipse_info_df= "+str(type(eclipse_info_df)))
+            column_names=list(eclipse_info_df.columns)
+
+            #Some early CSV files were row major instead of column major.
+            #This will detect if it is one of those early files and 
+            #   transpose and flatten it.
+            if column_names[0] == '0':
+                if verbose: 
+                    print("Transposing")
+                    
+                    print("Data frame column names (keys):")
+                    for column_name in column_names:
+                        print(column_name)
+            
+                #Transpose.
+                eclipse_info_df=eclipse_info_df.T.reset_index(drop=True)
+                #Assign headers
+                eclipse_info_df.columns=eclipse_info_df.iloc[0]
+                if verbose: print(eclipse_info_df.columns)
+                eclipse_info_df = eclipse_info_df.drop(eclipse_info_df.index[0]).reset_index(drop=True)
+                if verbose: print(eclipse_info_df.columns)
+
+                #"Flatten"
+                #if isinstance(eclipse_info_df.columns, pd.MultiIndex):
+                #    eclipse_info_df.columns = ['_'.join(map(str, col)) for col in eclipse_info_df.columns]
+                if verbose: 
+                    print("Transposed")
+                    for column_name in column_names:
+                        print(column_name)
+
+
+            else:  
+                column_names=list(eclipse_info_df.columns)
+
+            if 'AudioMoth ES ID Number' in column_names:
+                ESID_key='AudioMoth ES ID Number'
+            if 'ESID' in column_names:
+                ESID_key='ESID'
+            if verbose:
+                print(f"ESID_key= {ESID_key}")
         if ESID:
+            if verbose:
+                print("ESID= "+str(ESID))
+                print("Type ESID= "+str(type(ESID)))
             if type(ESID) == type('a'):
                 if verbose: print("ESID is of string type= "+ESID) 
             else:
-                print("esid was not a string attempting to fix.")
-                print("esid was= "+str(ESID)+", "+type(ESID).__name__)
+                if verbose:
+                    print("ESID was not a string attempting to fix.")
+                    print("ESID was= "+str(ESID)+", "+type(ESID).__name__)
                 ESID=str(ESID).zfill(3)
-                print("esid_string now= "+ESID)
+                if verbose: print("ESID now= "+ESID)
 
-    # Read the CSV file into a DataFrame
-            df = extract_row_by_esid(eclipse_data_csv, esid_string=ESID, verbose=verbose)
-            if verbose: 
-                print("Type df= "+str(type(df)))
-        else:
-            df=pd.read_csv(eclipse_data_csv, header=[0])
-        #Doing in this way instead of using df.to_dict to make a simpler dictionary
-        verbose=1
-        if verbose: 
-            if  type(df).__name__ =='DataFrame'  :
-                print("Data frame column names (keys):")
-                print(df.columns)
-            else:  print("df for ESID "+str(ESID)+" is None")
-        if  type(df).__name__ =='DataFrame'  :
-            eclipse_info={
-                "ESID": str(df['AudioMoth ES ID Number'].values[0]).zfill(3), 
-                "Latitude":df["Latitude"].values[0], 
-                "Longitude" :df["Longitude"].values[0],
-                "Eclipse_type" :df["LocalType"].values[0], 
-                "CoveragePercent" :df["CoveragePercent"].values[0], 
-                "FirstContactDate" :df["FirstContactDate"].values[0], 
-                "FirstContactTimeUTC" :df["FirstContactTimeUTC"].values[0], 
-                "SecondContactTimeUTC" :df["SecondContactTimeUTC"].values[0], 
-                "ThirdContactTimeUTC" :df["ThirdContactTimeUTC"].values[0], 
-                "FourthContactTimeUTC" :df["FourthContactTimeUTC"].values[0], 
-                "MaxEclipseTimeUTC" :df["TotalEclipseTimeUTC"].values[0]
-                }
-        else:
-            print("ESID not found.")
-
+        # Search for rows where 'AudioMoth ES ID Number' matches the input string
+                
+            if (eclipse_info_df[ESID_key].values == ESID).any() :
+            
+                matching_row = eclipse_info_df.loc[eclipse_info_df[ESID_key].values == ESID]
+            #matching_row = df[df['AudioMoth ES ID Number'].values[0] == esid_string]
+            else:
+                if (eclipse_info_df[ESID_key].values == int(ESID)).any(): 
+                    matching_row = eclipse_info_df.loc[eclipse_info_df[ESID_key].values == int(ESID)]
+            
+            if type(matching_row).__name__ =='DataFrame'  :
+                eclipse_info_df=matching_row
+            else:
+                print(f"Entry for ESID# {ESID} not found")
+                if verbose: print("Returning None")
+                Fail=True
+           
+        if not Fail:
+            #Doing in this way instead of using df.to_dict to make a simpler dictionary
+            if dictionary:
+                if  type(eclipse_info_df).__name__ =='DataFrame'  :
+                    if verbose: 
+                        print("Data frame column names (keys):")
+                        for column_name in column_names:
+                            print(column_name)
+                    eclipse_info_dict={
+                        "ESID": str(eclipse_info_df[ESID_key].values[0]).zfill(3), 
+                        "Latitude":eclipse_info_df["Latitude"].values[0], 
+                        "Longitude" :eclipse_info_df["Longitude"].values[0],
+                        "Eclipse_type" :eclipse_info_df["LocalType"].values[0], 
+                        "CoveragePercent" :eclipse_info_df["CoveragePercent"].values[0], 
+                        "FirstContactDate" :eclipse_info_df["FirstContactDate"].values[0], 
+                        "FirstContactTimeUTC" :eclipse_info_df["FirstContactTimeUTC"].values[0], 
+                        "SecondContactTimeUTC" :eclipse_info_df["SecondContactTimeUTC"].values[0], 
+                        "ThirdContactTimeUTC" :eclipse_info_df["ThirdContactTimeUTC"].values[0], 
+                        "FourthContactTimeUTC" :eclipse_info_df["FourthContactTimeUTC"].values[0], 
+                        "MaxEclipseTimeUTC" :eclipse_info_df["TotalEclipseTimeUTC"].values[0]
+                        }
+                    return eclipse_info_dict
+            else:  
+                return eclipse_info_df
+               
+                   
     else:
         print('Error! No file named '+eclipse_data_csv)
 
-    return eclipse_info
+    return eclipse_info_df
 
 def escsp_get_eclipse_time_trio(eclipse_info, verbose=False):
     time_format="%Y-%m-%d %H:%M:%S"
@@ -722,7 +816,10 @@ def escsp_get_psd(folder, plots_folder, filelist=None,
     #eclipse_data_csv=os.path.join(folder, "eclipse_data.csv")
 
     if os.path.isfile(eclipse_data_csv) :
-        eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, ESID=ESID, verbose=verbose)
+        eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, 
+                                            ESID=ESID, verbose=verbose, 
+                                            dictionary=True)
+        
         eclipse_time_trio=escsp_get_eclipse_time_trio(eclipse_info, verbose=verbose)
         eclipse_local_type=eclipse_info["Eclipse_type"]
         if verbose: print(eclipse_info)
@@ -1565,16 +1662,16 @@ def escsp_mk_video_clip(audio_filename=None, eclipse_image_file=None,
          print("video_filename: "+video_filename)
 
     # Import the audio(Insert to location of your audio instead of audioClip.mp3)
-    audio = AudioFileClip(audio_filename)
+    audio = moviepy.AudioFileClip(audio_filename)
     # Import the Image and set its duration same as the audio (Insert the location 
     #of your photo instead of photo.jpg)
-    clip = ImageClip(eclipse_image_file).set_duration(audio.duration)
+    clip = moviepy.ImageClip(eclipse_image_file)#.set_duration(audio.duration)
     # Set the audio of the clip
-    clip = clip.set_audio(audio)
+    clip.with_audio(audio)
     # Export the clip
-    clip.write_videofile(video_filename, 
+    clip.with_duration(audio.duration).write_videofile(video_filename, 
                          codec='libx264', 
-                         audio_codec='aac', fps=24)
+                         audio_codec='aac', fps=1)
 
     if verbose:
         if os.path.isfile(video_filename): print("Success! : "+video_filename)
@@ -1598,7 +1695,9 @@ def escsp_make_clips(folders, youtube_folder,verbose=False):
         if eclipse_data_csv : 
             eclipse_data_csv=eclipse_data_csv[0]
             #time_format="%Y-%m-%d %H:%M:%S"
-            eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, verbose=verbose, ESID=ESID)
+            eclipse_info=escsp_read_eclipse_csv(eclipse_data_csv, 
+                                                verbose=verbose, ESID=ESID,
+                                                dictionary=True)
 
 
             eclipse_type=eclipse_info["Eclipse_type"]
@@ -2231,6 +2330,8 @@ def compute_average_and_std_3_arrays(x1, y1, x2, y2, x3, y3):
 
 def extract_row_by_esid(csv_file, esid_string=False , verbose=False):
     """
+    Depreciated function
+    
     Extracts the row from a CSV file where the 'AudioMoth ES ID Number' matches a given string.
     
     Args:
@@ -2240,6 +2341,12 @@ def extract_row_by_esid(csv_file, esid_string=False , verbose=False):
     Returns:
     - pd.DataFrame: A DataFrame containing the matching row(s), or False if no match is found.
     """
+
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print("The function extract_row_by_esid has been depreciated.")
+    print("Use escsp_read_eclipse_csv with the ESID argument instead.")
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
     matching_row=None
 
     if verbose: 
@@ -2254,19 +2361,33 @@ def extract_row_by_esid(csv_file, esid_string=False , verbose=False):
     if esid_string.lower() != "none":
     # Read the CSV file into a DataFrame
         if os.path.isfile(csv_file) and esid_string != False and esid_string != None:
-            df = pd.read_csv(csv_file)
+            df = eclipse_csv_file_2_df(csv_file)
+            
+            if verbose: print(csv_file)
+            column_names=list(df.columns)
+            print("column_names;")
+            
+            for column_name in column_names:
+                print(column_names)
+            if 'ESID' not in column_names:
+                ESID_key='AudioMoth ES ID Number'
+            else:
+                ESID_key='ESID'
+
             if type(df).__name__ == 'DataFrame':
                 if verbose: 
                     print("Type df= "+str(type(df)))
                     print(df.columns)
                     print(esid_string)
     # Search for rows where 'AudioMoth ES ID Number' matches the input string
-                if (df['AudioMoth ES ID Number'].values == esid_string).any() :
-                    matching_row = df.loc[df['AudioMoth ES ID Number'].values == esid_string]
+                #if (df['AudioMoth ES ID Number'].values == esid_string).any() :
+                if (df[ESID_key].values == esid_string).any() :
+                    #matching_row = df.loc[df['AudioMoth ES ID Number'].values == esid_string]
+                    matching_row = df.loc[df[ESID_key].values == esid_string]
             #matching_row = df[df['AudioMoth ES ID Number'].values[0] == esid_string]
                 else:
-                    if (df['AudioMoth ES ID Number'].values == int(esid_string)).any(): 
-                        matching_row = df.loc[df['AudioMoth ES ID Number'].values == int(esid_string)]
+                    if (df[ESID_key].values == int(esid_string)).any(): 
+                        matching_row = df.loc[df[ESID_key].values == int(esid_string)]
             #matching_row = df[df['AudioMoth ES ID Number'].values[0] == int(esid_string)]
             
             else:
@@ -2931,7 +3052,3 @@ def get_audiomoth_temperature(directory,):
                 temperature = re.search(r"(-?\d+\.\d)C", comment)[1]
                 # Print the output row
                 csvWriter.writerow([i, fi, timestamp.isoformat(), battery, temperature, comment])
-
-
-
-t="testtest"
