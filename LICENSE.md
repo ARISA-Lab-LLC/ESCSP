@@ -1,4 +1,5 @@
 Copyright (c) 2022, ARISA Lab, Eclipse Soundscapes: Citizen Science Project.
+BSD-3-Clause (https://opensource.org/license/bsd-3-clause)
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
