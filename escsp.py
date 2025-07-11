@@ -67,6 +67,82 @@ def compute_md5_hash(filename):
 
     return hash_md5.hexdigest()
 
+def compute_sha_512_hash(filename, verbose=False):
+    """
+    Compute the SHA-512 hash of a file's contents.
+
+    Args:
+        filename (str): Path to the file to hash.
+        verbose (bool): If set, print the test print statements
+
+    Returns:
+        str: SHA-512 hash as a hexadecimal string.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        IOError: If there's an error reading the file.
+    """
+    if not os.path.isfile(filename):
+        raise FileNotFoundError(f"File does not exist: {filename}")
+
+    # Create a SHA-512 hash object
+    sha512_hash = hashlib.sha512()
+
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            sha512_hash.update(chunk)
+
+    # Read and hash the file in chunks
+    with open(filename, 'rb') as file:
+        for block in iter(lambda: file.read(4096), b''):
+            sha512_hash.update(block)
+
+    # Print the hexadecimal digest
+    if verbose:
+        print("SHA-512 hash:", sha512_hash.hexdigest())
+    return sha512_hash.hexdigest()
+
+def test_hash(filename, hash, md5=False ):
+
+    """
+    Test a given file against a provided hash.
+
+    Args:
+        filename (str): Path to the file to hash.
+        hash
+
+    Returns:
+        str: SHA-512 hash as a hexadecimal string.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        IOError: If there's an error reading the file.
+    """
+    try:
+        junk=type(filename)
+    except:
+        print("No filepath given")
+
+    try:
+        junk=type(hash)
+    except:
+        print("No hash given")
+
+    if not os.path.isfile(filename):
+        raise FileNotFoundError(f"File does not exist: {filename}")
+    
+    if not md5:
+        test_hash=compute_sha_512_hash(filename)
+        if test_hash == hash: return True
+        else: return False
+
+    else:
+        test_hash=compute_md5_hash(filename)
+        if test_hash == hash: return True
+        else: return False
+
+
+
 def mk_eclipse_data_csv(folder):
     if os.path.isdir(folder):
         AM_df=pd.read_csv(AM_Spreadsheet)

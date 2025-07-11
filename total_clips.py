@@ -7,14 +7,14 @@ import glob
 top_dir="/media/tracy/ESCSPA01/Total_Analysis_Data/"
 #top_dir="/Volumes/Austrian/Annular_DATA/"
 
-youtube_folder=top_dir+"YouTube_Queue/"
-
+youtube_folder=os.path.join(top_dir,"YouTube_Queue/")
+youtube_folder="/media/tracy/ESCSPA03/2024_Total_Eclipse_Data_Terk/ESID#518/"
 verbose=1
 ####################################################
 #ESIDS=get_escspids_to_analyze(top_dir)
 #ESIDS=['002','138', '169', '015', '022','081','111', '112','136', '231' , '232'] 
 #ESIDS=['014'] 
-ESIDS=['001']
+ESIDS=['518']
 
 folders=[]
 for ESID in ESIDS:
